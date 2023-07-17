@@ -15,13 +15,60 @@ from datetime import datetime
 
 stockfishEngine_Path = Path(rf"C:\Users\cianw\stockfish_15.1_win_x64_avx2\stockfish-windows-2022-x86-64-avx2.exe")
  
-csvFolder = r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess_CSV"
-pgnName = "lichess_db_standard_rated_2022-11"
+csvFolder = r"E:\ChessData"
+pgnName = "lichess_db_standard_rated_2023-06_2000_5m"
 pgnOut = Path(rf"{csvFolder}\{pgnName}.csv")
 
-lichessData = pd.read_csv(pgnOut, nrows=10000)
+lichessData = pd.read_csv(pgnOut, nrows=1000)
 lichessData['UTC_dateTime'] = pd.to_datetime(lichessData['UTCDate'] + ' ' + lichessData['UTCTime'])
 lichessData.describe()
+
+"""
+Functions for Featur Extraction
+"""
+
+#Function to Extract Every Nth Word starting at position M, up to N*O words.
+def extract_nth_words(text, M, N, O=None):
+    words = text.split()
+    if O is None:
+        endIndex = len(words)
+    else: 
+        endIndex = min(M-1+N*O, len(words))
+    result = [words[i] for i in range(M - 1, endIndex, N)]
+    return ' '.join(result)
+
+
+lichessData['moveNumbers'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 1, 3))
+lichessData['moveCount'] = lichessData['moveNumbers'].str.split().str.len()
+lichessData['whiteMoves_5'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 5))
+lichessData['blackMoves_5'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 5))
+lichessData['whiteMoves_10'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 10))
+lichessData['blackMoves_10'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 10))
+lichessData['whiteMoves_20'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 20))
+lichessData['blackMoves_20'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 20))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Create a Stockfish engine instance with a specific path to the executable
