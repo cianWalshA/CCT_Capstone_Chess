@@ -27,13 +27,13 @@ lc0_Path = Path(rf"C:\Users\cianw\Chess Engines\lc0-v0.29.0-windows-gpu-nvidia-c
 csvFolder = r"E:\ChessData"
 pgnName = "lichess_db_standard_rated_2023-06_2000_5m"
 pgnIn = Path(rf"{csvFolder}\{pgnName}.csv")
-pgnIn_EnglineAnalysis = Path(rf"{csvFolder}\{pgnName}_output.tsv")
+pgnIn_EnglineAnalysis = Path(rf"{csvFolder}\{pgnName}_engineApplied.tsv")
 
 lichessData = pd.read_csv(pgnIn)
 lichessData['UTC_dateTime'] = pd.to_datetime(lichessData['UTCDate'] + ' ' + lichessData['UTCTime'])
 lichessData.describe()
 
-lichessData_EA = pd.read_csv(pgnIn_EnglineAnalysis)
+lichessData_EA = pd.read_csv(pgnIn_EnglineAnalysis, sep='\t')
 lichessData_EA['UTC_dateTime'] = pd.to_datetime(lichessData_EA['UTCDate'] + ' ' + lichessData_EA['UTCTime'])
 lichessData_EA.describe()
 
@@ -75,7 +75,13 @@ lichessData['whiteMoves_10'] = lichessData['Moves'].apply(lambda x: extract_nth_
 lichessData['blackMoves_10'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 10))
 lichessData['whiteMoves_20'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 20))
 lichessData['blackMoves_20'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 20))
+lichessData['whiteMoves_30'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 30))
+lichessData['blackMoves_30'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 30))
 
+
+#Count and plot how many games based on move length
+
+#Count and plot how many games based on each opening
 
 
 
