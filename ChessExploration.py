@@ -20,8 +20,8 @@ from pathlib import Path
 from datetime import datetime 
 
 
-stockfish_Path = Path(rf"C:\Users\cianw\Chess Engines\stockfish_15.1_win_x64_avx2\stockfish-windows-2022-x86-64-avx2.exe")
-lc0_Path = Path(rf"C:\Users\cianw\Chess Engines\lc0-v0.29.0-windows-gpu-nvidia-cuda\lc0.exe")
+stockfish_Path = Path(r"C:\Users\cianw\Chess Engines\stockfish_15.1_win_x64_avx2\stockfish-windows-2022-x86-64-avx2.exe")
+lc0_Path = Path(r"C:\Users\cianw\Chess Engines\lc0-v0.29.0-windows-gpu-nvidia-cuda\lc0.exe")
  
  
 csvFolder = r"E:\ChessData"
@@ -36,6 +36,9 @@ lichessData.describe()
 lichessData_EA = pd.read_csv(pgnIn_EnglineAnalysis, sep='\t')
 lichessData_EA['UTC_dateTime'] = pd.to_datetime(lichessData_EA['UTCDate'] + ' ' + lichessData_EA['UTCTime'])
 lichessData_EA.describe()
+
+lichessPuzzles_Path = Path(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\lichess_db_puzzle.csv")
+lichessPuzzles = pd.read_csv(lichessPuzzles_Path)
 
 """
 SECTION 0 - 
@@ -69,6 +72,8 @@ Section XYZ - Feature Extraction from Complete Set
 
 lichessData['moveNumbers'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 1, 3))
 lichessData['moveCount'] = lichessData['moveNumbers'].str.split().str.len()
+lichessData['whiteMoves'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3))
+lichessData['blackMoves'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3))
 lichessData['whiteMoves_5'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 5))
 lichessData['blackMoves_5'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 5))
 lichessData['whiteMoves_10'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 10))
@@ -77,6 +82,11 @@ lichessData['whiteMoves_20'] = lichessData['Moves'].apply(lambda x: extract_nth_
 lichessData['blackMoves_20'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 20))
 lichessData['whiteMoves_30'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 30))
 lichessData['blackMoves_30'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 30))
+
+lichessData['whiteChecks'] = lichessData['whiteMoves'].str.count('+')
+lichessData['blackChecks'] = lichessData['whiteMoves'].str.count('+')
+lichessData['whiteTakes'] = lichessData['whiteMoves'].str.count('x')
+lichessData['blackTakes'] = lichessData['whiteMoves'].str.count('x')
 
 
 #Count and plot how many games based on move length
