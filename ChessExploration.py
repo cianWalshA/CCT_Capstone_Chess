@@ -68,8 +68,6 @@ Section XYZ - Feature Extraction from Complete Set
 """
 
 
-
-
 lichessData['moveNumbers'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 1, 3))
 lichessData['moveCount'] = lichessData['moveNumbers'].str.split().str.len()
 lichessData['whiteMoves'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3))
@@ -104,6 +102,12 @@ Exploration of Engine Analysed Sub-Sample
 lichessData_EA['stockfish_eval_test'] = lichessData_EA['stockfish_eval'].apply(get_ith_element, i=5)
 
 lichessData_EA['sex'].value_counts()
+
+
+"""
+SECTION - DEF
+Chess Puzzles Testing for Engines
+"""
 
 
 
