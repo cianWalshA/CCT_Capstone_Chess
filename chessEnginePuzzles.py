@@ -32,7 +32,7 @@ pgnIn_EnglineAnalysis = Path(rf"{csvFolder}\{pgnName}_engineApplied.tsv")
 
 
 lichessPuzzles_Path = Path(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\lichess_db_puzzle.csv")
-lichessPuzzles = pd.read_csv(lichessPuzzles_Path,nrows=10)
+lichessPuzzles = pd.read_csv(lichessPuzzles_Path)
 
 lichess = chess.engine.SimpleEngine.popen_uci(stockfish_Path)
 lc0 = chess.engine.SimpleEngine.popen_uci(lc0_Path)
@@ -44,36 +44,56 @@ lichessPuzzles['Lc0_Analysis'] = lichessPuzzles.apply(lambda row: analyze_fen_mo
 stockfish = chess.engine.SimpleEngine.popen_uci(stockfish_Path)
 lc0 = chess.engine.SimpleEngine.popen_uci(lc0_Path)
 
-def analyze_fen_moves(fen, moves, engine):
+def analyze_fen_moves(fen, moves, engine,):
     board = chess.Board(fen)
-    if moves:
-        first_move = moves.split()[0]
-        move = chess.Move.from_uci(first_move)
-        san_move = board.san(move)
-        board.push_san(san_move)
-    for move_str in moves.split():
+    firstMove = moves.split()[0]
+    otherMoves = moves.split(' ', 1)[1]
+    board.push_uci(firstMove)
+    
+    
+    
+    for move_str in otherMoves.split():
         move = chess.Move.from_uci(move_str)
         board.push(move)
-
     info = engine.analyse(board, limit=chess.engine(time=0.1))
 
     return info
+
+def returnWord(s, substr):
+    pattern = rf'\b\w*{substr}\w*\b'
+    match = re.search(pattern, s, re.IGNORECASE)
+    return match.group() if match else None
+
+
+matePuzzles = lichessPuzzles[lichessPuzzles['Themes'].str.contains("mate", case=False)]
+longMates = matePuzzles[matePuzzles['Themes'].str.contains("mateIn5", case=False)]
+
+matePuzzles['mateNum'] = matePuzzles.apply(lambda row: returnWord(row['Themes'], 'mate'), axis=1)
+
 
 lichessPuzzles['Stockfish_Analysis'] = lichessPuzzles.apply(lambda row: analyze_fen_moves(row['FEN'], row['Moves'], stockfish), axis=1)
 lichessPuzzles['Lc0_Analysis'] = lichessPuzzles.apply(lambda row: analyze_fen_moves(row['FEN'], row['Moves'], lc0), axis=1)
 
 
-fenTest= 'r6k/pp2r2p/4Rp1Q/3p4/8/1N1P2R1/PqP2bPP/7K b - - 0 24'
+fenTest = 'r6k/pp2r2p/4Rp1Q/3p4/8/1N1P2R1/PqP2bPP/7K b - - 0 24'
+movesTest ='f2g3 e6e7 b2b1 b3c1 b1c1 h6c1'
+firstMoveTest = movesTest.split()[0]
+
 
 boardTest = chess.Board(fenTest)
-info = stockfish.analyse(boardTest, limit=chess.engine.Limit(time=0.1))
-best_move = info.get("pv", [])[0]
+boardTest.push_uci(firstMoveTest)
+info = stockfish.play(boardTest, limit=chess.engine.Limit(time=5))
+best_move = info.move
 best_move_algebraic = boardTest.san(best_move)
 
+re.findall(r"(\w+f\w+)",movesTest)
 
 
+substring2 = 'amp'
+test_string = 'this is an example of the text that I have'
 
-
+print("matches for substring 1:",re.findall(r"(\w+he text th\w+)", test_string))
+print("matches for substring 2:",re.findall(r"(\w+ha\w+)",test_string))
 
 
 
