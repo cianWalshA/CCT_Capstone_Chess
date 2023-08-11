@@ -34,24 +34,14 @@ pgnIn_EnglineAnalysis = Path(rf"{csvFolder}\{pgnName}_engineApplied.tsv")
 lichessPuzzles_Path = Path(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\lichess_db_puzzle.csv")
 lichessPuzzles = pd.read_csv(lichessPuzzles_Path)
 
-lichess = chess.engine.SimpleEngine.popen_uci(stockfish_Path)
-lc0 = chess.engine.SimpleEngine.popen_uci(lc0_Path)
-
-
-lichessPuzzles['Stockfish_Analysis'] = lichessPuzzles.apply(lambda row: analyze_fen_moves(row['FEN'], row['Moves'], stockfish), axis=1)
-lichessPuzzles['Lc0_Analysis'] = lichessPuzzles.apply(lambda row: analyze_fen_moves(row['FEN'], row['Moves'], lc0), axis=1)
-
-stockfish = chess.engine.SimpleEngine.popen_uci(stockfish_Path)
-lc0 = chess.engine.SimpleEngine.popen_uci(lc0_Path)
+stockfish_engine = chess.engine.SimpleEngine.popen_uci(stockfish_Path)
+lc0_engine = chess.engine.SimpleEngine.popen_uci(lc0_Path)
 
 def analyze_fen_moves(fen, moves, engine,):
     board = chess.Board(fen)
     firstMove = moves.split()[0]
     otherMoves = moves.split(' ', 1)[1]
     board.push_uci(firstMove)
-    
-    
-    
     for move_str in otherMoves.split():
         move = chess.Move.from_uci(move_str)
         board.push(move)
@@ -71,20 +61,38 @@ longMates = matePuzzles[matePuzzles['Themes'].str.contains("mateIn5", case=False
 matePuzzles['mateNum'] = matePuzzles.apply(lambda row: returnWord(row['Themes'], 'mate'), axis=1)
 
 
-lichessPuzzles['Stockfish_Analysis'] = lichessPuzzles.apply(lambda row: analyze_fen_moves(row['FEN'], row['Moves'], stockfish), axis=1)
-lichessPuzzles['Lc0_Analysis'] = lichessPuzzles.apply(lambda row: analyze_fen_moves(row['FEN'], row['Moves'], lc0), axis=1)
+lichessPuzzles['Stockfish_Analysis'] = lichessPuzzles.apply(lambda row: analyze_fen_moves(row['FEN'], row['Moves'], stockfish_engine), axis=1)
+lichessPuzzles['Lc0_Analysis'] = lichessPuzzles.apply(lambda row: analyze_fen_moves(row['FEN'], row['Moves'], lc0_engine), axis=1)
 
 
-fenTest = 'r6k/pp2r2p/4Rp1Q/3p4/8/1N1P2R1/PqP2bPP/7K b - - 0 24'
-movesTest ='f2g3 e6e7 b2b1 b3c1 b1c1 h6c1'
+fenTest = '7k/pp2q1p1/1n2p1Bp/1b3pN1/1n1P3P/8/PP1K1PP1/1Q5R b - - 0 24'
+movesTest ='h6g5 h4g5 h8g8 h1h8 g8h8 b1h1 h8g8 h1h7 g8f8 h7h8'
 firstMoveTest = movesTest.split()[0]
 
+def return_best_move_puzzles(fen, moves, engine, inputDepth):
+    for i in range(1,inputDepth+1):
+        board = chess.Board(fen)
+        firstMove = moves.split()[0]   
+        secondMove = moves.split()[1]   
+        board.push_uci(firstMove)
+        info = engine.play(board, limit=chess.engine.Limit(depth=i, time = 0.1))
+        if board.uci(info.move) == secondMove:
+            return i
+        else:
+            pass
+        
 
+longMates['StockfishMateDepth'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,10), axis=1)
+longMates['Lc0MateDepth'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], lc0_engine,10), axis=1)
+
+longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\matePuzzleSolve.csv")
+    
 boardTest = chess.Board(fenTest)
 boardTest.push_uci(firstMoveTest)
-info = stockfish.play(boardTest, limit=chess.engine.Limit(time=5))
+info = lc0_engine.play(boardTest, limit=chess.engine.Limit(depth=1))
+test=info.score
 best_move = info.move
-best_move_algebraic = boardTest.san(best_move)
+best_move_algebraic = boardTest.uci(best_move)
 
 re.findall(r"(\w+f\w+)",movesTest)
 
@@ -94,8 +102,6 @@ test_string = 'this is an example of the text that I have'
 
 print("matches for substring 1:",re.findall(r"(\w+he text th\w+)", test_string))
 print("matches for substring 2:",re.findall(r"(\w+ha\w+)",test_string))
-
-
 
 
 
