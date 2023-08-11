@@ -58,6 +58,8 @@ def returnWord(s, substr):
 matePuzzles = lichessPuzzles[lichessPuzzles['Themes'].str.contains("mate", case=False)]
 longMates = matePuzzles[matePuzzles['Themes'].str.contains("mateIn5", case=False)]
 
+test= longMates.sample(n=10)
+
 matePuzzles['mateNum'] = matePuzzles.apply(lambda row: returnWord(row['Themes'], 'mate'), axis=1)
 
 
@@ -71,20 +73,24 @@ firstMoveTest = movesTest.split()[0]
 
 def return_best_move_puzzles(fen, moves, engine, inputDepth):
     for i in range(1,inputDepth+1):
+        print(i)
         board = chess.Board(fen)
         firstMove = moves.split()[0]   
         secondMove = moves.split()[1]   
         board.push_uci(firstMove)
-        info = engine.play(board, limit=chess.engine.Limit(depth=i, time = 0.1))
+        info = engine.play(board, limit=chess.engine.Limit(depth=i, time = 100))
         if board.uci(info.move) == secondMove:
-            return i
+            return i, board.uci(info.move)
+        elif i==inputDepth:
+            return i, board.uci(info.move)
         else:
             pass
         
 
-longMates['StockfishMateDepth'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,10), axis=1)
-longMates['Lc0MateDepth'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], lc0_engine,10), axis=1)
-
+longMates['StockfishMateDepth2'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,10), axis=1)
+longMates['Lc0MateDepth2'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], lc0_engine,10), axis=1)
+test[['StockfishMateDepth2','StockfishMateMove2']] = test.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,20), axis=1,result_type='expand')
+test[['Lc0MateDepth2','Lc0MateMove2']] = test.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], lc0_engine,20), axis=1, result_type='expand')
 longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\matePuzzleSolve.csv")
     
 boardTest = chess.Board(fenTest)
