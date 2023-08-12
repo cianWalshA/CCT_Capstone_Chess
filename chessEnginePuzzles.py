@@ -67,9 +67,7 @@ lichessPuzzles['Stockfish_Analysis'] = lichessPuzzles.apply(lambda row: analyze_
 lichessPuzzles['Lc0_Analysis'] = lichessPuzzles.apply(lambda row: analyze_fen_moves(row['FEN'], row['Moves'], lc0_engine), axis=1)
 
 
-fenTest = '7k/pp2q1p1/1n2p1Bp/1b3pN1/1n1P3P/8/PP1K1PP1/1Q5R b - - 0 24'
-movesTest ='h6g5 h4g5 h8g8 h1h8 g8h8 b1h1 h8g8 h1h7 g8f8 h7h8'
-firstMoveTest = movesTest.split()[0]
+
 
 def return_best_move_puzzles(fen, moves, engine, inputDepth):
     for i in range(1,inputDepth+1):
@@ -78,26 +76,40 @@ def return_best_move_puzzles(fen, moves, engine, inputDepth):
         firstMove = moves.split()[0]   
         secondMove = moves.split()[1]   
         board.push_uci(firstMove)
-        info = engine.play(board, limit=chess.engine.Limit(depth=i, time = 100))
-        if board.uci(info.move) == secondMove:
-            return i, board.uci(info.move)
-        elif i==inputDepth:
-            return i, board.uci(info.move)
+        if board.turn ==True:
+            turn='White'
+        else:
+            turn='Black'
+        info = engine.analyse(board, limit=chess.engine.Limit(depth=i, time = 10))
+        chosenMove=board.uci(info["pv"][0])
+        evaluation = info["score"][0]
+        usedDepth = info["depth"]
+        multiPV = info["multipv"]
+        if chosenMove == secondMove:
+            return usedDepth, multiPV, chosenMove, evaluation, turn
+        elif usedDepth==inputDepth:
+            return usedDepth, multiPV, chosenMove, evaluation, turn
         else:
             pass
         
 
-longMates['StockfishMateDepth2'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,10), axis=1)
-longMates['Lc0MateDepth2'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], lc0_engine,10), axis=1)
-test[['StockfishMateDepth2','StockfishMateMove2']] = test.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,20), axis=1,result_type='expand')
-test[['Lc0MateDepth2','Lc0MateMove2']] = test.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], lc0_engine,20), axis=1, result_type='expand')
+longMates['StockfishMateDepth2'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,20), axis=1)
+longMates['Lc0MateDepth2'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], lc0_engine,20), axis=1)
+test[['sfDepth','sfPV','sfMove', 'sfEval', 'sfTurn']] = test.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,1), axis=1,result_type='expand')
+test[['lc0Depth','lc0PV','lc0Move', 'lc0Eval','lc0Turn']] = test.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], lc0_engine,1), axis=1, result_type='expand')
 longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\matePuzzleSolve.csv")
     
+
+fenTest = '5k2/p4p2/5Pp1/8/2P2pqr/2P4p/P4Q1P/4R2K b - - 0 46'
+movesTest ='f4f3 f2c5 f8g8 e1e8 g8h7 e8h8 h7h8 c5f8 h8h7 f8g7'
+firstMoveTest = movesTest.split()[0]
 boardTest = chess.Board(fenTest)
 boardTest.push_uci(firstMoveTest)
-info = lc0_engine.play(boardTest, limit=chess.engine.Limit(depth=1))
+info = stockfish_engine.analyse(boardTest, limit=chess.engine.Limit(depth=1, time= 0.0001))
 test=info.score
-best_move = info.move
+test2=info["score"]
+boardTest.uci(info["pv"][0])
+best_move = boardTest.uci(info.move)
 best_move_algebraic = boardTest.uci(best_move)
 
 re.findall(r"(\w+f\w+)",movesTest)
@@ -108,6 +120,10 @@ test_string = 'this is an example of the text that I have'
 
 print("matches for substring 1:",re.findall(r"(\w+he text th\w+)", test_string))
 print("matches for substring 2:",re.findall(r"(\w+ha\w+)",test_string))
+"""
+	FEN
+2357530	5k2/p4p2/5Pp1/8/2P2pqr/2P4p/P4Q1P/4R2K b - - 0 46
 
-
-
+	Moves
+2357530	f4f3 f2c5 f8g8 e1e8 g8h7 e8h8 h7h8 c5f8 h8h7 f8g7
+"""
