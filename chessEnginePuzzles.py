@@ -76,12 +76,12 @@ def return_best_move_puzzles(fen, moves, engine, inputDepth):
         firstMove = moves.split()[0]   
         secondMove = moves.split()[1]   
         board.push_uci(firstMove)
+        info = engine.analyse(board, limit=chess.engine.Limit(depth=i, time = 10))
+        chosenMove=board.uci(info["pv"][0])
         if board.turn ==True:
             turn='White'
         else:
             turn='Black'
-        info = engine.analyse(board, limit=chess.engine.Limit(depth=i, time = 10))
-        chosenMove=board.uci(info["pv"][0])
         evaluation = info["score"][0]
         usedDepth = info["depth"]
         multiPV = info["multipv"]
