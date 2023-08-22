@@ -113,14 +113,18 @@ lc0_engine = chess.engine.SimpleEngine.popen_uci(lc0_Path)
 
 fenTest = '5k2/p4p2/5Pp1/8/2P2pqr/2P4p/P4Q1P/4R2K b - - 0 46'
 movesTest ='f4f3 f2c5 f8g8 e1e8 g8h7 e8h8 h7h8 c5f8 h8h7 f8g7'
+
+
 firstMoveTest = movesTest.split()[0]
 boardTest = chess.Board(fenTest)
 boardTest.push_uci(firstMoveTest)
 start_time = time.time()
-info = stockfish_engine.analyse(boardTest, chess.engine.Limit(depth=4, time = 1000))
+info = stockfish_engine.analyse(boardTest, chess.engine.Limit(depth=5))
 print("--- %s seconds ---" % (time.time() - start_time))  
 test=info["score"]
 print(test)
+
+
 start_time = time.time()
 info2 = lc0_engine.analyse(boardTest, chess.engine.Limit(depth=4, time = 1000))
 print("--- %s seconds ---" % (time.time() - start_time))  
@@ -145,3 +149,13 @@ print("matches for substring 2:",re.findall(r"(\w+ha\w+)",test_string))
 	Moves
 2357530	f4f3 f2c5 f8g8 e1e8 g8h7 e8h8 h7h8 c5f8 h8h7 f8g7
 """
+
+with stockfish_engine.analysis(boardTest) as analysis:
+     for info in analysis:
+         print(info.get("score"), info.get("pv"))
+
+         # Arbitrary stop condition.
+         if info.get("seldepth", 0) > 20:
+             break
+
+stockfish_engine.quit()
