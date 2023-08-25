@@ -45,6 +45,7 @@ def analyze_fen_moves(fen, moves, engine,):
     for move_str in otherMoves.split():
         move = chess.Move.from_uci(move_str)
         board.push(move)
+    engine.ucinewgame()
     info = engine.analyse(board, limit=chess.engine(time=0.1))
 
     return info
@@ -56,9 +57,12 @@ def returnWord(s, substr):
 
 
 matePuzzles = lichessPuzzles[lichessPuzzles['Themes'].str.contains("mate", case=False)]
-longMates = matePuzzles[matePuzzles['Themes'].str.contains("mateIn5", case=False)]
+matePuzzles['mateInX'] = matePuzzles['Moves'].str.split().str.len()/2
+matePuzzles['mateInX'].value_counts()
+longMates = matePuzzles[matePuzzles['mateInX']>=5.0]
 
-test= longMates.sample(n=10)
+
+testDF= longMates.sample(n=10)
 
 #matePuzzles['mateNum'] = matePuzzles.apply(lambda row: returnWord(row['Themes'], 'mate'), axis=1)
 
@@ -69,7 +73,7 @@ test= longMates.sample(n=10)
 
 
 
-def return_best_move_puzzles(fen, moves, engine, inputDepth):
+def return_best_move_puzzles(fen, moves, mateInX, engine, inputDepth):
     outputList = []
     for h in (1,10,100,1000):
         for i in range(1,inputDepth+1):
@@ -78,6 +82,7 @@ def return_best_move_puzzles(fen, moves, engine, inputDepth):
             firstMove = moves.split()[0]   
             secondMove = moves.split()[1]   
             board.push_uci(firstMove)
+            engine.ucinewgame()
             info = engine.analyse(board, limit=chess.engine.Limit(depth=i, time=h))
             chosenMove=board.uci(info["pv"][0])
             if board.turn ==True:
@@ -87,7 +92,7 @@ def return_best_move_puzzles(fen, moves, engine, inputDepth):
             evaluation = info["score"]
             usedDepth = info["depth"]
             combinedOutputs = [usedDepth, chosenMove, evaluation, turn]
-            if evaluation.relative in (chess.engine.Mate(5), chess.engine.Mate(-5)):
+            if evaluation.relative in (chess.engine.Mate(mateInX), chess.engine.Mate(-mateInX)):
                 outputList.append(combinedOutputs)
                 break
             elif usedDepth==inputDepth:
@@ -104,13 +109,13 @@ longMates[['sfDepth','sfMove', 'sfEval', 'sfTurn']] = longMates.apply(lambda row
 longMates[['lc0Depth','lc0Move', 'lc0Eval','lc0Turn']] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], lc0_engine,20), axis=1, result_type='expand')
 longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\matePuzzleSolve2.csv")
     
-test['newList'] = test.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,20), axis=1)
-test['newList2'] = test.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], lc0_engine,20), axis=1)
+testDF['newList'] = testDF.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine,20), axis=1)
+testDF['newList2'] = testDF.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], row['mateInX'], lc0_engine,20), axis=1)
 
 
 stockfish_engine = chess.engine.SimpleEngine.popen_uci(stockfish_Path)
 lc0_engine = chess.engine.SimpleEngine.popen_uci(lc0_Path)
-
+stockfish_engine.reset
 fenTest = '5k2/p4p2/5Pp1/8/2P2pqr/2P4p/P4Q1P/4R2K b - - 0 46'
 movesTest ='f4f3 f2c5 f8g8 e1e8 g8h7 e8h8 h7h8 c5f8 h8h7 f8g7'
 
@@ -118,18 +123,21 @@ movesTest ='f4f3 f2c5 f8g8 e1e8 g8h7 e8h8 h7h8 c5f8 h8h7 f8g7'
 firstMoveTest = movesTest.split()[0]
 boardTest = chess.Board(fenTest)
 boardTest.push_uci(firstMoveTest)
+
 start_time = time.time()
-info = stockfish_engine.analyse(boardTest, chess.engine.Limit(depth=5))
+info = stockfish_engine.analyse(boardTest, chess.engine.Limit(depth=10))
 print("--- %s seconds ---" % (time.time() - start_time))  
 test=info["score"]
 print(test)
 
 
 start_time = time.time()
-info2 = lc0_engine.analyse(boardTest, chess.engine.Limit(depth=4, time = 1000))
+info2 = lc0_engine.analyse(boardTest, chess.engine.Limit())
 print("--- %s seconds ---" % (time.time() - start_time))  
 test2=info2["score"]
 print(test2)
+
+
 boardTest.uci(info2["pv"][0])
 best_move = boardTest.uci(info.move)
 best_move_algebraic = boardTest.uci(best_move)
