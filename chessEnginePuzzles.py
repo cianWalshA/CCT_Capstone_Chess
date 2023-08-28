@@ -101,6 +101,16 @@ def return_best_move_puzzles(fen, moves, mateInX, engine, inputDepth):
             else:
                 pass
     return outputList
+def return_best_move_puzzles_info(fen, moves, mateInX, engine, inputDepth):
+    outputList = []
+    #print(i)
+    board = chess.Board(fen)
+    firstMove = moves.split()[0]   
+    secondMove = moves.split()[1]   
+    board.push_uci(firstMove)
+    info = engine.analyse(board, limit = chess.engine.Limit(time=10))
+    chosenMove=board.uci(info["pv"][0])
+    return info
         
 
 #longMates['StockfishMateDepth2'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,20), axis=1)
@@ -111,6 +121,9 @@ longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Ches
     
 testDF['newList'] = testDF.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine,20), axis=1)
 testDF['newList2'] = testDF.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], row['mateInX'], lc0_engine,20), axis=1)
+
+testDF['newList'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine,20), axis=1)
+testDF['newList2'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], lc0_engine,20), axis=1)
 
 
 stockfish_engine = chess.engine.SimpleEngine.popen_uci(stockfish_Path)
@@ -125,7 +138,7 @@ boardTest = chess.Board(fenTest)
 boardTest.push_uci(firstMoveTest)
 
 start_time = time.time()
-info = stockfish_engine.analyse(boardTest, chess.engine.Limit(depth=10))
+info = stockfish_engine.analyse(boardTest, chess.engine.Limit())
 print("--- %s seconds ---" % (time.time() - start_time))  
 test=info["score"]
 print(test)
