@@ -35,20 +35,10 @@ lichessPuzzles_Path = Path(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal
 lichessPuzzles = pd.read_csv(lichessPuzzles_Path)
 
 stockfish_engine = chess.engine.SimpleEngine.popen_uci(stockfish_Path)
+stockfish_options = {'Clear Hash':True}
 lc0_engine = chess.engine.SimpleEngine.popen_uci(lc0_Path)
+lc0_options = {'NNCacheSize':0}
 
-def analyze_fen_moves(fen, moves, engine,):
-    board = chess.Board(fen)
-    firstMove = moves.split()[0]
-    otherMoves = moves.split(' ', 1)[1]
-    board.push_uci(firstMove)
-    for move_str in otherMoves.split():
-        move = chess.Move.from_uci(move_str)
-        board.push(move)
-    engine.ucinewgame()
-    info = engine.analyse(board, limit=chess.engine(time=0.1))
-
-    return info
 
 def returnWord(s, substr):
     pattern = rf'\b\w*{substr}\w*\b'
@@ -71,46 +61,34 @@ testDF= longMates.sample(n=10)
 #lichessPuzzles['Lc0_Analysis'] = lichessPuzzles.apply(lambda row: analyze_fen_moves(row['FEN'], row['Moves'], lc0_engine), axis=1)
 
 
-
-
-def return_best_move_puzzles(fen, moves, mateInX, engine, inputDepth):
-    outputList = []
-    for h in (1,10,100,1000):
-        for i in range(1,inputDepth+1):
-            #print(i)
-            board = chess.Board(fen)
-            firstMove = moves.split()[0]   
-            secondMove = moves.split()[1]   
-            board.push_uci(firstMove)
-            engine.ucinewgame()
-            info = engine.analyse(board, limit=chess.engine.Limit(depth=i, time=h))
-            chosenMove=board.uci(info["pv"][0])
-            if board.turn ==True:
-                turn='White'
-            else:
-                turn='Black'
-            evaluation = info["score"]
-            usedDepth = info["depth"]
-            combinedOutputs = [usedDepth, chosenMove, evaluation, turn]
-            if evaluation.relative in (chess.engine.Mate(mateInX), chess.engine.Mate(-mateInX)):
-                outputList.append(combinedOutputs)
-                break
-            elif usedDepth==inputDepth:
-                outputList.append(combinedOutputs)
-                break
-            else:
-                pass
-    return outputList
-def return_best_move_puzzles_info(fen, moves, mateInX, engine, inputDepth):
+def return_best_move_puzzles_info(fen, moves, mateInX, loadedEngine, inputDepth, engineOptions):
     outputList = []
     #print(i)
     board = chess.Board(fen)
     firstMove = moves.split()[0]   
     secondMove = moves.split()[1]   
     board.push_uci(firstMove)
-    info = engine.analyse(board, limit = chess.engine.Limit(time=10))
-    chosenMove=board.uci(info["pv"][0])
+    loadedEngine.configure(engineOptions)
+    #info = loadedEngine.analyse(board, limit = chess.engine.Limit(mate=mateInX))
+    info = loadedEngine.analyse(board, limit = chess.engine.Limit(time=1), multipv=1)
+    #chosenMove=board.uci(info["pv"][0])
     return info
+
+def return_best_move_puzzles_info(fen, moves, mateInX, loadedEngine, inputDepth, engineOptions):
+    outputList = []
+    #print(i)
+    board = chess.Board(fen)
+    firstMove = moves.split()[0]   
+    secondMove = moves.split()[1]   
+    board.push_uci(firstMove)
+    loadedEngine.configure(engineOptions)
+    #Declares a dictionary of "info" where it can be looped through while the mate has not been found
+    info = loadedEngine.analyse(board, limit=chess.engine.Limit(time=0), info=chess.engine.INFO_ALL)
+    while not info["score"].is_mate():
+        info = stockfish_engine.analyse(board, chess.engine.Limit(time=1))
+        print(info["score"])
+    return info
+        
         
 
 #longMates['StockfishMateDepth2'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,20), axis=1)
@@ -119,16 +97,17 @@ longMates[['sfDepth','sfMove', 'sfEval', 'sfTurn']] = longMates.apply(lambda row
 longMates[['lc0Depth','lc0Move', 'lc0Eval','lc0Turn']] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], lc0_engine,20), axis=1, result_type='expand')
 longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\matePuzzleSolve2.csv")
     
-testDF['newList'] = testDF.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine,20), axis=1)
-testDF['newList2'] = testDF.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], row['mateInX'], lc0_engine,20), axis=1)
+testDF['newList'] = testDF.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine,20, {'Clear Hash':True}), axis=1)
+testDF['newList2'] = testDF.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], row['mateInX'], lc0_engine,20, ), axis=1)
 
-testDF['newList'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine,20), axis=1)
-testDF['newList2'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], lc0_engine,20), axis=1)
-
+testDF['newList'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine,20, stockfish_options), axis=1)
+testDF['newList2'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], lc0_engine,20, lc0_options), axis=1)
 
 stockfish_engine = chess.engine.SimpleEngine.popen_uci(stockfish_Path)
+stockfish_engine.configure({'Clear Hash':True})
+
 lc0_engine = chess.engine.SimpleEngine.popen_uci(lc0_Path)
-stockfish_engine.reset
+lc0_engine.configure({'NNCacheSize':0})
 fenTest = '5k2/p4p2/5Pp1/8/2P2pqr/2P4p/P4Q1P/4R2K b - - 0 46'
 movesTest ='f4f3 f2c5 f8g8 e1e8 g8h7 e8h8 h7h8 c5f8 h8h7 f8g7'
 
@@ -137,8 +116,20 @@ firstMoveTest = movesTest.split()[0]
 boardTest = chess.Board(fenTest)
 boardTest.push_uci(firstMoveTest)
 
+
+info = stockfish_engine.analyse(boardTest, limit=chess.engine.Limit(time=0), info=chess.engine.INFO_ALL)
+while not info["score"].is_mate():
+    info = stockfish_engine.analyse(boardTest, chess.engine.Limit())
+    print(info["score"])
+    
+info2 = lc0_engine.analyse(boardTest, limit=chess.engine.Limit(time=0), info=chess.engine.INFO_ALL)
+while not info2["score"].is_mate():
+    info2 = lc0_engine.analyse(boardTest, chess.engine.Limit())
+    print(info["score"])
+        
+    
 start_time = time.time()
-info = stockfish_engine.analyse(boardTest, chess.engine.Limit())
+info = stockfish_engine.analyse(boardTest, chess.engine.Limit(mate=6))
 print("--- %s seconds ---" % (time.time() - start_time))  
 test=info["score"]
 print(test)
