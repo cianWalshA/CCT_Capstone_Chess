@@ -75,11 +75,10 @@ def return_best_move_puzzles_info(fen, moves, mateInX, loadedEngine, engineOptio
         for info in analysis:
             if info.get("score"):
                 if info.get("score").relative in (chess.engine.Mate(mateInX), chess.engine.Mate(mateInX)):
-                     return pd.Series(info)
+                    break
                 elif info.get("time")>10:
-                    return pd.Series(info)
-                
-    return pd.Series(info)
+                    break
+    return info
         
 
 #longMates['StockfishMateDepth2'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,20), axis=1)
@@ -87,6 +86,10 @@ def return_best_move_puzzles_info(fen, moves, mateInX, loadedEngine, engineOptio
 
 longMates['stockfishInfo'] = longMates.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine, stockfish_options), axis=1)
 longMates['lc0Info'] = longMates.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], lc0_engine, lc0_options), axis=1)
+longMates = pd.concat([longMates,longMates['stockfishInfo'].apply(pd.Series).add_prefix('SF_')], axis=1)
+longMates = pd.concat([longMates,longMates['lc0Info'].apply(pd.Series).add_prefix('LC0_')], axis=1)
+longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\matePuzzlesSolvedExp.csv")
+
 """
 longMates['sf_time'] = longMates['stockfishInfo'].apply(lambda x: x.get('time'))
 longMates['sf_depth'] = longMates['stockfishInfo'].apply(lambda x: x['depth'])
@@ -106,8 +109,11 @@ longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Ches
 
 testDF['stockfishInfo'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine, stockfish_options), axis=1)
 testDF['lc0Info'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], lc0_engine, lc0_options), axis=1)
+testDF = pd.concat([testDF,testDF['stockfishInfo'].apply(pd.Series).add_prefix('SF_')], axis=1)
+testDF = pd.concat([testDF,testDF['lc0Info'].apply(pd.Series).add_prefix('lc0_')], axis=1)
 
-newDF= testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], lc0_engine, lc0_options), axis=1)
+newDF= testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], row['PuzzleId'], lc0_engine, lc0_options), axis=1,result_type="expand")
+newDF= testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], row['PuzzleId'], lc0_engine, lc0_options), axis=1, result_type="expand")
 
 
 
