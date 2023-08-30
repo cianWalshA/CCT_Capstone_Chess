@@ -75,11 +75,11 @@ def return_best_move_puzzles_info(fen, moves, mateInX, loadedEngine, engineOptio
         for info in analysis:
             if info.get("score"):
                 if info.get("score").relative in (chess.engine.Mate(mateInX), chess.engine.Mate(mateInX)):
-                     return info
+                     return pd.Series(info)
                 elif info.get("time")>10:
-                    return info
+                    return pd.Series(info)
                 
-    return info
+    return pd.Series(info)
         
 
 #longMates['StockfishMateDepth2'] = longMates.apply(lambda row: return_best_move_puzzles(row['FEN'], row['Moves'], stockfish_engine,20), axis=1)
@@ -87,7 +87,7 @@ def return_best_move_puzzles_info(fen, moves, mateInX, loadedEngine, engineOptio
 
 longMates['stockfishInfo'] = longMates.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine, stockfish_options), axis=1)
 longMates['lc0Info'] = longMates.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], lc0_engine, lc0_options), axis=1)
-
+"""
 longMates['sf_time'] = longMates['stockfishInfo'].apply(lambda x: x.get('time'))
 longMates['sf_depth'] = longMates['stockfishInfo'].apply(lambda x: x['depth'])
 longMates['sf_seldepth'] = longMates['stockfishInfo'].apply(lambda x: x['seldepth'])
@@ -95,12 +95,19 @@ longMates['lc0_time'] = longMates['lc0Info'].apply(lambda x: x['time'])
 longMates['lc0_depth'] = longMates['lc0Info'].apply(lambda x: x['depth'])
 longMates['lc0_seldepth'] = longMates['lc0Info'].apply(lambda x: x['seldepth'])
 
+longMates = pd.concat([longMates, pd.json_normalize(longMates["stockfishInfo"])], axis=1)
+
+test=pd.json_normalize(longMates["stockfishInfo"])
+test2= longMates["stockfishInfo"].apply(pd.Series).add_prefix("X_")
+test3 = pd.json_normalize(longMates['stockfishInfo'])
+"""
 longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\matePuzzleSolve2.csv")
 
 
 testDF['stockfishInfo'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine, stockfish_options), axis=1)
 testDF['lc0Info'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], lc0_engine, lc0_options), axis=1)
 
+newDF= testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], lc0_engine, lc0_options), axis=1)
 
 
 
