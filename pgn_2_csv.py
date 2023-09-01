@@ -20,10 +20,10 @@ import pandas as pd
 import seaborn as sns
 from pathlib import Path
 
-pgnFolder = r"E:\ChessData"
-csvFolder = r"E:\ChessData"
-pgnName = "lichess_db_standard_rated_2023-06"
-outputName = "2000_5m"
+pgnFolder = r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess"
+csvFolder = r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess_CSV"
+pgnName = "lichess_db_standard_rated_2013-01"
+outputName = "TEST"
 #FIX MOVE LINES CODE
 
 def csvCommit(outFile, dictToWrite, csvHeaders):
@@ -112,4 +112,4 @@ def pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0 , 
     
 
 #Create DF from PGN (PERSONAL GAME NOTATION)
-pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=2000, blackELO=2000, timeControl=300, save = 1, overwrite=1, memoryLimitGB = 250, gameDepositLength= 100000)
+pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=1500, blackELO=1500, timeControl=300, save = 1, overwrite=1, memoryLimitGB = 0.5, gameDepositLength= 1000)

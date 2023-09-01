@@ -37,8 +37,6 @@ lichessData_EA = pd.read_csv(pgnIn_EnglineAnalysis, sep='\t')
 lichessData_EA['UTC_dateTime'] = pd.to_datetime(lichessData_EA['UTCDate'] + ' ' + lichessData_EA['UTCTime'])
 lichessData_EA.describe()
 
-lichessPuzzles_Path = Path(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\lichess_db_puzzle.csv")
-lichessPuzzles = pd.read_csv(lichessPuzzles_Path)
 
 """
 SECTION 0 - 

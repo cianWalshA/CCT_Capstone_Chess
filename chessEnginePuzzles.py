@@ -90,23 +90,16 @@ longMates = pd.concat([longMates,longMates['stockfishInfo'].apply(pd.Series).add
 longMates = pd.concat([longMates,longMates['lc0Info'].apply(pd.Series).add_prefix('LC0_')], axis=1)
 longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\matePuzzlesSolvedExp.csv")
 
-"""
-longMates['sf_time'] = longMates['stockfishInfo'].apply(lambda x: x.get('time'))
-longMates['sf_depth'] = longMates['stockfishInfo'].apply(lambda x: x['depth'])
-longMates['sf_seldepth'] = longMates['stockfishInfo'].apply(lambda x: x['seldepth'])
-longMates['lc0_time'] = longMates['lc0Info'].apply(lambda x: x['time'])
-longMates['lc0_depth'] = longMates['lc0Info'].apply(lambda x: x['depth'])
-longMates['lc0_seldepth'] = longMates['lc0Info'].apply(lambda x: x['seldepth'])
 
-longMates = pd.concat([longMates, pd.json_normalize(longMates["stockfishInfo"])], axis=1)
-
-test=pd.json_normalize(longMates["stockfishInfo"])
-test2= longMates["stockfishInfo"].apply(pd.Series).add_prefix("X_")
-test3 = pd.json_normalize(longMates['stockfishInfo'])
-"""
 longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\matePuzzleSolve2.csv")
 
 
+
+"""
+Below is a sequence of testing code and feature/parameter input testing
+NOT FOR USE
+"""
+"""
 testDF['stockfishInfo'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], stockfish_engine, stockfish_options), axis=1)
 testDF['lc0Info'] = testDF.apply(lambda row: return_best_move_puzzles_info(row['FEN'], row['Moves'], row['mateInX'], lc0_engine, lc0_options), axis=1)
 testDF = pd.concat([testDF,testDF['stockfishInfo'].apply(pd.Series).add_prefix('SF_')], axis=1)
@@ -192,13 +185,13 @@ test_string = 'this is an example of the text that I have'
 
 print("matches for substring 1:",re.findall(r"(\w+he text th\w+)", test_string))
 print("matches for substring 2:",re.findall(r"(\w+ha\w+)",test_string))
-"""
-	FEN
-2357530	5k2/p4p2/5Pp1/8/2P2pqr/2P4p/P4Q1P/4R2K b - - 0 46
 
-	Moves
-2357530	f4f3 f2c5 f8g8 e1e8 g8h7 e8h8 h7h8 c5f8 h8h7 f8g7
-"""
+#	FEN
+#2357530	5k2/p4p2/5Pp1/8/2P2pqr/2P4p/P4Q1P/4R2K b - - 0 46
+
+#	Moves
+#2357530	f4f3 f2c5 f8g8 e1e8 g8h7 e8h8 h7h8 c5f8 h8h7 f8g7
+
 
 with stockfish_engine.analysis(boardTest) as analysis:
      for info in analysis:
@@ -209,3 +202,6 @@ with stockfish_engine.analysis(boardTest) as analysis:
              break
 
 stockfish_engine.quit()
+
+
+"""
