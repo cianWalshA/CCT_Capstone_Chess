@@ -20,14 +20,14 @@ from pathlib import Path
 from datetime import datetime 
 
 
-stockfish_Path = Path(r"C:\Users\cianw\Chess Engines\stockfish_15.1_win_x64_avx2\stockfish-windows-2022-x86-64-avx2.exe")
-lc0_Path = Path(r"C:\Users\cianw\Chess Engines\lc0-v0.29.0-windows-gpu-nvidia-cuda\lc0.exe")
+stockfish_Path = Path(r"C:\Users\cianw\Chess Engines\Latest\stockfish-windows-x86-64-avx2\stockfish\stockfish-windows-x86-64-avx2.exe")
+lc0_Path = Path(r"C:\Users\cianw\Chess Engines\Latest\lc0-v0.30.0-windows-gpu-nvidia-cuda\lc0.exe")
  
- 
-csvFolder = r"E:\ChessData"
-pgnName = "lichess_db_standard_rated_2023-06_2000_5m"
+pgnFolder = r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess"
+csvFolder = r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess_CSV"
+pgnName = "lichess_db_standard_rated_2013-01"
 pgnIn = Path(rf"{csvFolder}\{pgnName}.csv")
-pgnIn_EnglineAnalysis = Path(rf"{csvFolder}\{pgnName}_engineApplied.tsv")
+pgnIn_EnglineAnalysis = Path(rf"{csvFolder}\{pgnName}_output.tsv")
 
 lichessData = pd.read_csv(pgnIn)
 lichessData['UTC_dateTime'] = pd.to_datetime(lichessData['UTCDate'] + ' ' + lichessData['UTCTime'])
@@ -60,6 +60,32 @@ def get_ith_element(lst, i):
     else:
         return None
 
+#Incorporate get_ith_element into this function
+#Return X moves with X details, save double defining the ouptuts
+
+def move_analysis(text, M, N, O=None):
+    
+    #Call word extractor based on list
+    moves = extract_nth_words(text, M, N, O)
+    
+    #Process Moves into Features
+    checks = moves.str.count('+')
+    takes = moves.str.count('x')
+    bishopMoves = moves.str.count('B')
+    knightMoves = moves.str.count('N')
+    rookMoves = moves.str.count('R')
+    
+    #Pawn Moves - Need to clarify - pseudo code below
+    #Words in string that start with a small latter - regex -> a-z
+    
+    #Repeated Moves - Where a word in string - check for repetition of it in X moves
+    
+    minorMoves = bishopMoves + knightMoves + rookMoves
+    return
+    
+    
+    
+    
 
 """
 Section XYZ - Feature Extraction from Complete Set

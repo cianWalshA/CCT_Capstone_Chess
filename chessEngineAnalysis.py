@@ -24,7 +24,7 @@ pgnName = "lichess_db_standard_rated_2013-01"
 pgnIn = Path(rf"{csvFolder}\{pgnName}.csv")
 pgnOut = Path(rf"{csvFolder}\{pgnName}_output.tsv")
 
-lichessData = pd.read_csv(pgnIn, nrows=100)
+lichessData = pd.read_csv(pgnIn, nrows=5)
 lichessData['UTC_dateTime'] = pd.to_datetime(lichessData['UTCDate'] + ' ' + lichessData['UTCTime'])
 lichessData.describe()
 
@@ -35,8 +35,7 @@ stockfish_options = {'Clear Hash':True}
 lc0_engine = chess.engine.SimpleEngine.popen_uci(lc0_Path)
 lc0_options = {'NNCacheSize':0}
 
-def evaluateGame(games, loadedEngine, engineOptions,gameNumber):
-    gameNumber+=1
+def evaluateGame(games, loadedEngine, engineOptions):
     gameMoves = chess.pgn.read_game(io.StringIO(games['Moves']))
     gameMoves.headers
 
@@ -49,8 +48,8 @@ def evaluateGame(games, loadedEngine, engineOptions,gameNumber):
     depthDiff =[]
     for move in gameMoves.mainline_moves():
         loadedEngine.configure(engineOptions)
-        info1 = loadedEngine.analyse(board, limit=chess.engine.Limit(time=0.01, depth=20))
-        score1 = info1['score'].white()
+        info1 = loadedEngine.analyse(board, limit=chess.engine.Limit(time=.5), info=chess.engine.INFO_ALL)
+        score1 = info1['score'].relative
         evalList1.append(score1)
         depthList1.append(info1['depth'])
         #evalDiff.append(score2-score1)
@@ -78,12 +77,11 @@ def evaluateGame(games, loadedEngine, engineOptions,gameNumber):
         depthDiff.append(info2['depth']-info1['depth'])
         """
         #print(f"Score: {info['score']},\tScore (white): " + f"{info['score'].white()},\tDepth: {info['depth']}")
+        
         board.push(move)
     """
     return evalList1, depthList1, evalList2, depthList2, evalDiff, depthDiff
     """
-    if gameNumber%10 == 0:
-        print(rf"{gameNumber} - Games Processed")
     return evalList1, depthList1
 """
 start_time = time.time()
@@ -100,7 +98,6 @@ start_time = time.time()
 lichessData[['stockfish_eval','stockfish_depth']] = lichessData.apply(evaluateGame,
     loadedEngine=stockfish_engine,
     engineOptions = stockfish_options,
-    gameNumber=0,
     axis=1, 
     result_type='expand')
 print("--- %s seconds ---" % (time.time() - start_time))      
@@ -109,17 +106,16 @@ start_time = time.time()
 lichessData[['lc0_eval','lc0_depth']] = lichessData.apply(evaluateGame,
     loadedEngine = lc0_engine,
     engineOptions = lc0_options,
-    gameNumber=0,
     axis=1, 
     result_type='expand')           
-print("--- %s seconds ---" % (time.time() - start_time))   #                                        
+print("--- %s seconds ---" % (time.time() - start_time))                                           
 
 
 
 
-#lichessData.to_csv(pgnOut, sep="\t")
+lichessData.to_csv(pgnOut, sep="\t")
 
-lichessDate_read = pd.read_csv(pgnOut, sep="\t")
+#lichessDate_read = pd.read_csv(pgnOut, sep="\t")
 
 
 
