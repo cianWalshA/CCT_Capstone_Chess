@@ -17,6 +17,7 @@ import re
 import pandas as pd
 import numpy as np
 import seaborn as sns
+import matplotlib.pyplot as plt
 from scipy import stats
 from pathlib import Path
 from datetime import datetime 
@@ -138,18 +139,36 @@ def mwu_test(df, dataCol1, dataCol2, subgroup, direction , alpha):
          subgroup_df = df[df[subgroup]==int(value)]
          
          #Apply Shapiro-Wilk Normality Test
-         tStat, pValue = stats.mannwhitneyu(x = subgroup_df[dataCol1], y = subgroup_df[dataCol2], alternative = direction, method='exact')
+         summary1= subgroup_df[dataCol1].describe()
+         summary2= subgroup_df[dataCol2].describe()
+
+         tStat, pValue = stats.mannwhitneyu(x = subgroup_df[dataCol1], y = subgroup_df[dataCol2], alternative = direction, method='auto')
          # Determine if the subgroup follows a normal distribution
          testResult = pValue > alpha
          
-         results.append((value, tStat, pValue, testResult))
+         results.append((value, tStat, pValue, testResult, summary1,summary2))
          print(rf"Variable: {dataCol1}&{dataCol2} - Subgroup: {value} - test: {tStat} - p-Value: {pValue} - Result: {testResult}")
-     return pd.DataFrame(results, columns = [subgroup, 'testStatistic', 'pValue', 'testResult'])   
+     return pd.DataFrame(results, columns = [subgroup, 'testStatistic', 'pValue', 'testResult','summaryValue1', 'summaryValue2' ])   
     
-seldepthDistTest = mwu_test(solved_Adj, 'SF_seldepth', 'LCO_seldepth', 'mateInX','two-sided', 0.05)
-nodesDistTest = mwu_test(solved_Adj, 'SF_time', 'LC0_time', 'mateInX','two-sided', 0.05)
-timeDistTest = mwu_test(solved_Adj, 'SF_nodes', 'LC0_nodes', 'mateInX','two-sided', 0.05)
-    
+seldepthDistTest = mwu_test(solved_Adj, 'SF_seldepth', 'LC0_seldepth', 'mateInX','two-sided', 0.05)
+timeDistTest = mwu_test(solved_Adj, 'SF_time', 'LC0_time', 'mateInX','two-sided', 0.05)
+nodesDistTest = mwu_test(solved_Adj, 'SF_nodes', 'LC0_nodes', 'mateInX','two-sided', 0.05)
 
+seldepthMelt = pd.melt(solved_Adj,id_vars = 'mateInX', value_vars=['SF_seldepth','LC0_seldepth' ])
+sns.boxplot(data=seldepthMelt, x='variable', y= 'value', hue= 'mateInX', palette='mako')
+
+timeMelt = pd.melt(solved_Adj,id_vars = 'mateInX', value_vars=['SF_time','LC0_time' ])
+sns.boxplot(data=timeMelt, x='variable', y= 'value', hue= 'mateInX', palette='mako')
+plt.yscale('log')
+
+nodesMelt = pd.melt(solved_Adj,id_vars = 'mateInX', value_vars=['SF_nodes','LC0_nodes' ])
+sns.boxplot(data=nodesMelt, x='variable', y= 'value', hue= 'mateInX', palette='mako')
+plt.yscale('log')
+
+
+tStat, pValue = stats.mannwhitneyu(x = solved_5['SF_seldepth'], y = solved_5['LC0_seldepth'], alternative = 'greater', method='auto')
+tStat, pValue = stats.mannwhitneyu(x = solved_6['SF_seldepth'], y = solved_6['LC0_seldepth'], alternative = 'two-sided', method='auto')
+tStat, pValue = stats.mannwhitneyu(x = solved_7['SF_seldepth'], y = solved_7['LC0_seldepth'], alternative = 'two-sided', method='auto')
+tStat, pValue = stats.mannwhitneyu(x = solved_8['SF_seldepth'], y = solved_8['LC0_seldepth'], alternative = 'two-sided', method='auto')
 
 
