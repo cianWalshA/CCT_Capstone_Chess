@@ -93,6 +93,9 @@ longMates.to_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Ches
 
 solved = pd.read_csv(r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess\puzzles\matePuzzlesSolvedExp.csv")
 
+solved_Adj = solved[solved['mateInX']<=8]
+
+
 solved_5 = solved[solved['mateInX']==5]
 solved_6 = solved[solved['mateInX']==6]
 solved_7 = solved[solved['mateInX']==7]
@@ -107,27 +110,45 @@ uniqueVals = pd.Series.unique(solved['mateInX'])
 #Test for normality in distributions:
 def normal_test_subgroups(df, dataCol, subgroup , alpha):
     results=[]
-    uniqueVals = df[subgroup].unique()
+    uniqueVals = pd.Series.unique(df[subgroup])
     for value in uniqueVals:
-        subgroup_df = df[df[subgroup]==value]
-        return (len(subgroup_df[dataCol]))
+        subgroup_df = df[df[subgroup]==int(value)]
+        
         #Apply Shapiro-Wilk Normality Test
         tStat, pValue = stats.shapiro(subgroup_df[dataCol])
         # Determine if the subgroup follows a normal distribution
         normal = pValue > alpha
+        
         results.append((value, tStat, pValue, normal))
+        print(rf"Variable: {dataCol} - Subgroup: {value} - test: {tStat} - p-Value: {pValue} - Normal: {normal}")
     return pd.DataFrame(results, columns = [subgroup, 'testStatistic', 'pValue', 'isNormal'])
 
-SF_seldepthNormal = normal_test_subgroups(solved, 'SF_seldepth', 'mateInX', 0.05)
-LC0_seldepthNormal = normal_test_subgroups(solved, 'LC0_seldepth', 'mateInX', 0.05)
-SF_timeNormal = normal_test_subgroups(solved, 'SF_time', 'mateInX', 0.05)
-LC0_timeNormal = normal_test_subgroups(solved, 'LC0_time', 'mateInX', 0.05)
-SF_nodesNormal = normal_test_subgroups(solved, 'SF_nodes', 'mateInX', 0.05)
-LC0_nodesNormal = normal_test_subgroups(solved, 'LC0_nodes', 'mateInX', 0.05)
+SF_seldepthNormal = normal_test_subgroups(solved_Adj, 'SF_seldepth', 'mateInX', 0.05)
+LC0_seldepthNormal = normal_test_subgroups(solved_Adj, 'LC0_seldepth', 'mateInX', 0.05)
+SF_timeNormal = normal_test_subgroups(solved_Adj, 'SF_time', 'mateInX', 0.05)
+LC0_timeNormal = normal_test_subgroups(solved_Adj, 'LC0_time', 'mateInX', 0.05)
+SF_nodesNormal = normal_test_subgroups(solved_Adj, 'SF_nodes', 'mateInX', 0.05)
+LC0_nodesNormal = normal_test_subgroups(solved_Adj, 'LC0_nodes', 'mateInX', 0.05)
             
-        
+
+def mwu_test(df, dataCol1, dataCol2, subgroup, direction , alpha):
+     results=[]
+     uniqueVals = pd.Series.unique(df[subgroup])
+     for value in uniqueVals:
+         subgroup_df = df[df[subgroup]==int(value)]
+         
+         #Apply Shapiro-Wilk Normality Test
+         tStat, pValue = stats.mannwhitneyu(x = subgroup_df[dataCol1], y = subgroup_df[dataCol2], alternative = direction, method='exact')
+         # Determine if the subgroup follows a normal distribution
+         testResult = pValue > alpha
+         
+         results.append((value, tStat, pValue, testResult))
+         print(rf"Variable: {dataCol1}&{dataCol2} - Subgroup: {value} - test: {tStat} - p-Value: {pValue} - Result: {testResult}")
+     return pd.DataFrame(results, columns = [subgroup, 'testStatistic', 'pValue', 'testResult'])   
     
-    
+seldepthDistTest = mwu_test(solved_Adj, 'SF_seldepth', 'LCO_seldepth', 'mateInX','two-sided', 0.05)
+nodesDistTest = mwu_test(solved_Adj, 'SF_time', 'LC0_time', 'mateInX','two-sided', 0.05)
+timeDistTest = mwu_test(solved_Adj, 'SF_nodes', 'LC0_nodes', 'mateInX','two-sided', 0.05)
     
 
 
