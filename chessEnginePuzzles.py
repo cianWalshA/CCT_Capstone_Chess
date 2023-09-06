@@ -148,22 +148,37 @@ def mwu_test(df, dataCol1, dataCol2, subgroup, direction , alpha):
          
          results.append((value, tStat, pValue, testResult, summary1,summary2))
          print(rf"Variable: {dataCol1}&{dataCol2} - Subgroup: {value} - test: {tStat} - p-Value: {pValue} - Result: {testResult}")
-     return pd.DataFrame(results, columns = [subgroup, 'testStatistic', 'pValue', 'testResult','summaryValue1', 'summaryValue2' ])   
+     return pd.DataFrame(results, columns = [subgroup, 'testStatistic', 'pValue', 'testResult','summaryValue1', 'summaryValue2' ])  
+
+solved_Adj_rename = solved_Adj.rename(columns={'SF_seldepth':'Stockfish SelDepth',
+                                        'LC0_seldepth':'LeelaChessZero SelDepth',
+                                        'SF_time':'Stockfish Time',
+                                        'LC0_time':'LeelaChessZero Time',
+                                        'SF_nodes':'Stockfish Nodes',
+                                        'LC0_nodes':'LeelaChessZero Nodes',
+                                        'mateInX':'Mate In X'
+                                        })
     
-seldepthDistTest = mwu_test(solved_Adj, 'SF_seldepth', 'LC0_seldepth', 'mateInX','two-sided', 0.05)
-timeDistTest = mwu_test(solved_Adj, 'SF_time', 'LC0_time', 'mateInX','two-sided', 0.05)
-nodesDistTest = mwu_test(solved_Adj, 'SF_nodes', 'LC0_nodes', 'mateInX','two-sided', 0.05)
+seldepthDistTest = mwu_test(solved_Adj_rename, 'Stockfish SelDepth', 'LeelaChessZero SelDepth', 'Mate In X','two-sided', 0.05)
+timeDistTest = mwu_test(solved_Adj_rename, 'Stockfish Time', 'LeelaChessZero Time', 'Mate In X','two-sided', 0.05)
+nodesDistTest = mwu_test(solved_Adj_rename, 'Stockfish Nodes', 'LeelaChessZero Nodes', 'Mate In X','two-sided', 0.05)
 
-seldepthMelt = pd.melt(solved_Adj,id_vars = 'mateInX', value_vars=['SF_seldepth','LC0_seldepth' ])
-sns.boxplot(data=seldepthMelt, x='variable', y= 'value', hue= 'mateInX', palette='mako')
+seldepthMelt = pd.melt(solved_Adj_rename,id_vars = 'Mate In X', value_vars=['Stockfish SelDepth','LeelaChessZero SelDepth' ])
+seldepthMelt = seldepthMelt.rename(columns={'value':'SelDepth', 'variable':'Engine'})
+sns.boxplot(data=seldepthMelt, x='Engine', y= 'SelDepth', hue= 'Mate In X', palette='mako')
+plt.show()
 
-timeMelt = pd.melt(solved_Adj,id_vars = 'mateInX', value_vars=['SF_time','LC0_time' ])
-sns.boxplot(data=timeMelt, x='variable', y= 'value', hue= 'mateInX', palette='mako')
+timeMelt = pd.melt(solved_Adj_rename,id_vars = 'Mate In X', value_vars=['Stockfish Time','LeelaChessZero Time' ])
+timeMelt = timeMelt.rename(columns={'value':'Time (ms)', 'variable':'Engine'})
+sns.boxplot(data=timeMelt, x='Engine', y= 'Time (ms)', hue= 'Mate In X', palette='mako')
 plt.yscale('log')
+plt.show()
 
-nodesMelt = pd.melt(solved_Adj,id_vars = 'mateInX', value_vars=['SF_nodes','LC0_nodes' ])
-sns.boxplot(data=nodesMelt, x='variable', y= 'value', hue= 'mateInX', palette='mako')
+nodesMelt = pd.melt(solved_Adj_rename,id_vars = 'Mate In X', value_vars=['Stockfish Nodes','LeelaChessZero Nodes' ])
+nodesMelt = nodesMelt.rename(columns={'value':'Nodes', 'variable':'Engine'})
+sns.boxplot(data=nodesMelt, x='Engine', y= 'Nodes', hue= 'Mate In X', palette='mako')
 plt.yscale('log')
+plt.show()
 
 
 tStat, pValue = stats.mannwhitneyu(x = solved_5['SF_seldepth'], y = solved_5['LC0_seldepth'], alternative = 'greater', method='auto')
