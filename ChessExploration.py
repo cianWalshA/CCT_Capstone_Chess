@@ -6,6 +6,7 @@ Created on Thu Jul 27 20:40:31 2023
 """
 import sys
 import io
+import ast
 import os
 import time
 import csv
@@ -23,20 +24,15 @@ from datetime import datetime
 stockfish_Path = Path(r"C:\Users\cianw\Chess Engines\Latest\stockfish-windows-x86-64-avx2\stockfish\stockfish-windows-x86-64-avx2.exe")
 lc0_Path = Path(r"C:\Users\cianw\Chess Engines\Latest\lc0-v0.30.0-windows-gpu-nvidia-cuda\lc0.exe")
  
-pgnFolder = r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess"
-csvFolder = r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\Data\Chess\Lichess_CSV"
-pgnName = "lichess_db_standard_rated_2013-01"
-pgnIn = Path(rf"{csvFolder}\{pgnName}.csv")
-pgnIn_EnglineAnalysis = Path(rf"{csvFolder}\{pgnName}_output.tsv")
+pgnFolder = r"E:\ChessData"
+csvFolder = r"E:\ChessData"
+pgnName = "lichess_db_standard_rated_2023-06_2000_1m_row_analysed"
+pgnIn_EnglineAnalysis = Path(rf"{csvFolder}\{pgnName}.tsv")
 
-lichessData = pd.read_csv(pgnIn)
+
+lichessData = pd.read_csv(pgnIn_EnglineAnalysis, sep='\t', nrows=100000)
 lichessData['UTC_dateTime'] = pd.to_datetime(lichessData['UTCDate'] + ' ' + lichessData['UTCTime'])
 lichessData.describe()
-
-lichessData_EA = pd.read_csv(pgnIn_EnglineAnalysis, sep='\t')
-lichessData_EA['UTC_dateTime'] = pd.to_datetime(lichessData_EA['UTCDate'] + ' ' + lichessData_EA['UTCTime'])
-lichessData_EA.describe()
-
 
 """
 SECTION 0 - 
@@ -82,20 +78,50 @@ def move_analysis(text, M, N, O=None):
     
     minorMoves = bishopMoves + knightMoves + rookMoves
     return
+
+def summarize_columns(df, groupCols, prefixes, summaryStats):
+    grouped = df.groupby(groupCols)
+    summary_df = pd.DataFrame()
+
+    for prefix in prefixes:
+        for stat in summaryStats:
+            selectedCols = [col for col in df.columns if col.startswith(prefix)]
+            print(selectedCols)
+            print(stat)
+            print(summaryStats)
+            result = grouped[selectedCols].agg({stat: rf'{stat}'})
+            result.columns = [f'{prefix}_{col}_{stat}' for col in selectedCols]
+            summary_df = pd.concat([summary_df, result], axis=1)
+    summary_df = summary_df.reset_index()
     
-    
-    
-    
+    return summary_df
+
+
+lichessData = lichessData.join(pd.DataFrame(lichessData['SF_eval'].apply(ast.literal_eval).values.tolist()).add_prefix('eval')).drop(columns={'SF_eval'})
+lichessData = lichessData.join(pd.DataFrame(lichessData['SF_seldepth'].apply(ast.literal_eval).values.tolist()).add_prefix('seldepth')).drop(columns={'SF_seldepth'})
+
+lichessData = lichessData.dropna(subset='eval4')
+
+selectedCols = [col for col in lichessData.columns if col.startswith('eval')]
+lichessSummary = lichessData.groupby('Opening_x')[selectedCols].describe()
+lichessSummary.columns = [' '.join(col).strip() for col in lichessSummary.columns.values]
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 """
 Section XYZ - Feature Extraction from Complete Set
 """
-
-
-lichessData['moveNumbers'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 1, 3))
-lichessData['moveCount'] = lichessData['moveNumbers'].str.split().str.len()
-lichessData['whiteMoves'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3))
-lichessData['blackMoves'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3))
 lichessData['whiteMoves_5'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 5))
 lichessData['blackMoves_5'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 5))
 lichessData['whiteMoves_10'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 10))
@@ -123,9 +149,7 @@ lichessData['blackTakes'] = lichessData['whiteMoves'].str.count('x')
 SECTION - ABC
 Exploration of Engine Analysed Sub-Sample
 """
-lichessData_EA['stockfish_eval_test'] = lichessData_EA['stockfish_eval'].apply(get_ith_element, i=5)
 
-lichessData_EA['sex'].value_counts()
 
 
 """
