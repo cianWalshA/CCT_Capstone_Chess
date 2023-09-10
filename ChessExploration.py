@@ -26,13 +26,37 @@ lc0_Path = Path(r"C:\Users\cianw\Chess Engines\Latest\lc0-v0.30.0-windows-gpu-nv
  
 pgnFolder = r"E:\ChessData"
 csvFolder = r"E:\ChessData"
+csvAllRatingFolder = r"E:\ChessData\newOutputs"
+
 pgnName = "lichess_db_standard_rated_2023-06_2000_1m_row_analysed"
 pgnIn_EnglineAnalysis = Path(rf"{csvFolder}\{pgnName}.tsv")
+
+pgnNameAllRating = "lichess_db_standard_rated_2023-06__allRatings"
+pgnIn_AllRatings = Path(rf"{csvAllRatingFolder}\{pgnNameAllRating}.csv")
 
 
 lichessData = pd.read_csv(pgnIn_EnglineAnalysis, sep='\t', nrows=100000)
 lichessData['UTC_dateTime'] = pd.to_datetime(lichessData['UTCDate'] + ' ' + lichessData['UTCTime'])
 lichessData.describe()
+
+
+allRatings = pd.read_csv(pgnIn_AllRatings)
+allRatings['UTC_dateTime'] = pd.to_datetime(allRatings['UTCDate'] + ' ' + allRatings['UTCTime'])
+allRatings.describe()
+
+openings_a_Path = Path(rf"{csvFolder}\a.tsv")
+openings_b_Path = Path(rf"{csvFolder}\b.tsv")
+openings_c_Path = Path(rf"{csvFolder}\c.tsv")
+openings_d_Path = Path(rf"{csvFolder}\d.tsv")
+openings_e_Path = Path(rf"{csvFolder}\e.tsv")
+openings_a = pd.read_csv(openings_a_Path, sep='\t')
+openings_b = pd.read_csv(openings_b_Path, sep='\t')
+openings_c = pd.read_csv(openings_c_Path, sep='\t')
+openings_d = pd.read_csv(openings_d_Path, sep='\t')
+openings_e = pd.read_csv(openings_e_Path, sep='\t')
+openings = pd.concat([openings_a, openings_b, openings_c, openings_d, openings_e])
+del openings_a, openings_b, openings_c, openings_d, openings_e
+
 
 """
 SECTION 0 - 
@@ -110,15 +134,6 @@ lichessSummary.columns = [' '.join(col).strip() for col in lichessSummary.column
 
 
 
-
-
-
-
-
-
-
-
-
 """
 Section XYZ - Feature Extraction from Complete Set
 """
@@ -144,6 +159,57 @@ lichessData['blackTakes'] = lichessData['whiteMoves'].str.count('x')
 
 
 #Where move count >= 5, >=10 return 10th and 20th values of rating respectively?
+
+"""
+SECTION - ABC
+Exploration of rating distribution
+"""
+
+openings['moveNumbers'] = openings['pgn'].apply(lambda x: extract_nth_words(x, 1, 3))
+openings['whiteMoves'] = openings['pgn'].apply(lambda x: extract_nth_words(x, 2, 3))
+openings['blackMoves'] = openings['pgn'].apply(lambda x: extract_nth_words(x, 3, 3))
+openings['moveCount'] = openings['moveNumbers'].str.split().str.len()
+openings['halfMoveCount'] = openings['whiteMoves'].str.split().str.len() + openings['blackMoves'].str.split().str.len()  
+openings['white_black'] = openings['halfMoveCount'].apply(lambda x: 'black' if x % 2 == 0 else 'white') 
+# Sort the DataFrame by columns 'a' and 'b'
+openings = openings.sort_values(by=['name', 'halfMoveCount'])
+openings = openings.drop_duplicates(subset='name', keep='first')
+
+allRatings = allRatings.merge(openings, left_on='Opening', right_on='name', how='left')
+allRatings = allRatings.dropna(subset=['name']) 
+allRatings['openingPlayer'] = np.where(allRatings['white_black'] == 'black', allRatings['Black'], allRatings['White'])
+allRatings['openingPlayerRating'] = np.where(allRatings['white_black'] == 'black', allRatings['Black'], allRatings['White'])
+
+
+openingsPlayed = allRatings.groupby('Opening').size().reset_index(name='Count')
+uniquePlayers = allRatings.groupby('Opening')['openingPlayer'].nunique().reset_index().rename(columns={'openingPlayer': 'countOpeningPlayers'})
+openingAnalysis = openingsPlayed.merge(uniquePlayers, on='Opening')
+openingAnalysis['openingPlayerDiversity'] =(openingAnalysis['Count']-openingAnalysis['countOpeningPlayers'])/openingAnalysis['Count']
+
+
+uniquePlayerOpenings = allRatings.groupby('openingPlayer')['Opening'].nunique().reset_index().rename(columns={'Opening': 'countPlayerOpening'})
+uniquePlayerGames = allRatings.groupby('openingPlayer').size().reset_index(name='countGames')
+playerAnalysis = uniquePlayerOpenings.merge(uniquePlayerGames, on='openingPlayer')
+playerAnalysis['openingsUsedDivesity'] =(playerAnalysis['countGames']-playerAnalysis['countPlayerOpening'])/playerAnalysis['countGames']
+
+
+allRatings = allRatings.merge(openingAnalysis, on='Opening', how='left')
+allRatings = allRatings.merge(playerAnalysis, on='openingPlayer', how='left')
+allRatingsRatioFilter = allRatings[(allRatings['countOpeningPlayers']>100) & (allRatings['openingPlayerDiversity']>0.1)]
+
+playerRatings = allRatings.groupby('openingPlayer').size().reset_index(name='countGames')
+
+whiteElo = allRatings[['White','WhiteElo']].rename(columns={'White':'Player', 'WhiteElo':'ELO'})
+blackElo = allRatings[['Black','BlackElo']].rename(columns={'Black':'Player', 'BlackElo':'ELO'})
+
+playerRatingsBoth = pd.concat([whiteElo,blackElo])
+playerRatings = playerRatingsBoth.groupby('Player')['ELO'].mean().reset_index(name='ELO')
+
+playerRatings=playerRatings.merge(uniquePlayerOpenings, left_on='Player', right_on='openingPlayer', how='left')
+
+allRatings = allRatings.merge(playerRatings, left_on='openingPlayer', right_on='Player', how='left')
+
+
 
 """
 SECTION - ABC

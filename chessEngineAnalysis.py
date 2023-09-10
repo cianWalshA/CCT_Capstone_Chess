@@ -112,78 +112,73 @@ def evaluateGame(games, loadedEngine, engineOptions):
 
 
 """
-Analysis Section
+Dataset Creation
 """
 
 openings = pd.concat([openings_a, openings_b, openings_c, openings_d, openings_e])
+del openings_a, openings_b, openings_c, openings_d, openings_e
+
 openings['moveNumbers'] = openings['pgn'].apply(lambda x: extract_nth_words(x, 1, 3))
 openings['whiteMoves'] = openings['pgn'].apply(lambda x: extract_nth_words(x, 2, 3))
 openings['blackMoves'] = openings['pgn'].apply(lambda x: extract_nth_words(x, 3, 3))
 openings['moveCount'] = openings['moveNumbers'].str.split().str.len()
 openings['halfMoveCount'] = openings['whiteMoves'].str.split().str.len() + openings['blackMoves'].str.split().str.len()  
-openings['white_black'] = openings['halfMoveCount'].apply(lambda x: 'black' if x % 2 == 0 else 'white')
-
+openings['white_black'] = openings['halfMoveCount'].apply(lambda x: 'black' if x % 2 == 0 else 'white') 
 # Sort the DataFrame by columns 'a' and 'b'
 openings = openings.sort_values(by=['name', 'halfMoveCount'])
 openings = openings.drop_duplicates(subset='name', keep='first')
 
 lichessData = lichessData.merge(openings, left_on='Opening', right_on='name', how='left')
-lichessData = lichessData.dropna(subset=['name'])
+lichessData = lichessData.dropna(subset=['name']) 
+lichessData['openingPlayer'] = np.where(lichessData['white_black'] == 'black', lichessData['Black'], lichessData['White'])
 
+
+"""
+Dataset Exploration
+"""
 
 lichessData = lichessData.sort_values(by='Opening', ascending=False)
-category_counts = lichessData['Opening'].value_counts().reset_index().rename(columns={'index': 'Opening', 'Opening': 'counts'})
 
+openingsPlayed = lichessData.groupby('Opening').size().reset_index(name='Count')
+uniquePlayers = lichessData.groupby('Opening')['openingPlayer'].nunique().reset_index().rename(columns={'openingPlayer': 'countOpeningPlayers'})
+openingAnalysis = openingsPlayed.merge(uniquePlayers, on='Opening')
+openingAnalysis['openingPlayerDiversity'] =(openingAnalysis['Count']-openingAnalysis['countOpeningPlayers'])/openingAnalysis['Count']
+
+
+uniquePlayerOpenings = lichessData.groupby('openingPlayer')['Opening'].nunique().reset_index().rename(columns={'Opening': 'countPlayerOpening'})
+uniquePlayerGames = lichessData.groupby('openingPlayer').size().reset_index(name='countGames')
+playerAnalysis = uniquePlayerOpenings.merge(uniquePlayerGames, on='openingPlayer')
+playerAnalysis['openingsUsedDivesity'] =(playerAnalysis['countGames']-playerAnalysis['countPlayerOpening'])/playerAnalysis['countGames']
+playerAnalysisFiltered =playerAnalysis[(playerAnalysis['countPlayerOpening']>5) & (playerAnalysis['openingsUsedDivesity']>0.1)]
+
+
+lichessData = lichessData.merge(openingAnalysis, on='Opening', how='left')
+lichessData = lichessData.merge(playerAnalysis, on='openingPlayer', how='left')
+lichessDataRatioFilter = lichessData[(lichessData['countOpeningPlayers']>100) & (lichessData['openingPlayerDiversity']>0.1)]
+
+
+category_counts = lichessData['Opening'].value_counts().reset_index().rename(columns={'index': 'Opening', 'Opening': 'counts'})
 percentiles = [99, 95, 90, 85, 80, 75,70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 1]
 countPercentiles = np.percentile(category_counts['counts'], percentiles)
 percentilesCategory = pd.DataFrame({'Percentile': percentiles, 'Value': countPercentiles})
-category_counts['counts'].skew().sort_values(ascending=False)
+
+category_counts2 = lichessDataRatioFilter['Opening'].value_counts().reset_index().rename(columns={'index': 'Opening', 'Opening': 'counts'})
+percentiles = [99, 95, 90, 85, 80, 75,70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 1]
+countPercentiles2 = np.percentile(category_counts2['counts'], percentiles)
+percentilesCategory2 = pd.DataFrame({'Percentile': percentiles, 'Value': countPercentiles2})
+
 category_counts = category_counts.sort_values(by='Count', ascending=False)
-fig = px.bar(
-    category_counts,
-    x='Opening',
-    y='counts',  # Use original count values for y-axis
-    text='counts',
-    title='Counts by Group on Log Scale (Bar Chart)',
-    labels={'Count': 'Log(Count)'},
-)
-# Apply log scale to the y-axis
-fig.update_yaxes(type='log')
-# Customize the layout
-fig.update_layout(
-    xaxis_title='Category',
-    yaxis_title='Count',
-    xaxis_tickangle=-45,  # Rotate x-axis labels for better visibility
-)
-# Show the bar chart
-fig.show()
-plt.show(fig)
+
+
 
 lichessDataSummary = lichessData['Opening'].value_counts().reset_index()
 lichessData = lichessData.merge(lichessDataSummary, left_on='Opening', right_on='index', how='left')
 
 
-linesProcessed = 0
-dataFrameSize = len(lichessData)
-printThreshold = dataFrameSize/1000
-start_time = time.time()
-"""
-lichessData[['stockfish_eval','stockfish_depth','SF_seldepth']] = lichessData.apply(evaluateGame,
-    loadedEngine=stockfish_engine,
-    engineOptions = stockfish_options,
-    axis=1, 
-    result_type='expand')
-print("--- %s seconds ---" % (time.time() - start_time))      
-"""
 
+                                           
 """
-start_time = time.time()
-lichessData[['lc0_eval','lc0_depth']] = lichessData.apply(evaluateGame,
-    loadedEngine = lc0_engine,
-    engineOptions = lc0_options,
-    axis=1, 
-    result_type='expand')           
-print("--- %s seconds ---" % (time.time() - start_time))                                           
+Application of Engine Analysis
 """
 
 chunk_size = 100  # Adjust this based on your memory constraints
@@ -198,7 +193,10 @@ def process_data(chunk):
     return pd.concat([chunk, chunk_out], axis=1)
 
 
-    
+linesProcessed = 0
+dataFrameSize = len(lichessData)
+printThreshold = dataFrameSize/1000
+start_time = time.time()
 processed_df = pd.DataFrame()
 for start_idx in range(0, len(lichessData), chunk_size):
     startTime = time.time()
