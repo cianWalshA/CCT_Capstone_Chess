@@ -17,6 +17,7 @@ import re
 import pandas as pd
 import numpy as np
 import seaborn as sns
+import matplotlib.pyplot as plt
 from pathlib import Path
 from datetime import datetime 
 
@@ -121,6 +122,7 @@ def summarize_columns(df, groupCols, prefixes, summaryStats):
     return summary_df
 
 
+
 lichessData = lichessData.join(pd.DataFrame(lichessData['SF_eval'].apply(ast.literal_eval).values.tolist()).add_prefix('eval')).drop(columns={'SF_eval'})
 lichessData = lichessData.join(pd.DataFrame(lichessData['SF_seldepth'].apply(ast.literal_eval).values.tolist()).add_prefix('seldepth')).drop(columns={'SF_seldepth'})
 
@@ -204,12 +206,31 @@ blackElo = allRatings[['Black','BlackElo']].rename(columns={'Black':'Player', 'B
 
 playerRatingsBoth = pd.concat([whiteElo,blackElo])
 playerRatings = playerRatingsBoth.groupby('Player')['ELO'].mean().reset_index(name='ELO')
-
 playerRatings=playerRatings.merge(uniquePlayerOpenings, left_on='Player', right_on='openingPlayer', how='left')
+playerRatings = playerRatings.dropna(subset=['openingPlayer'])
 
 allRatings = allRatings.merge(playerRatings, left_on='openingPlayer', right_on='Player', how='left')
 
+playerRatings['ELO'] = pd.cut(playerRatings['ELO'], bins=6, labels=False)
 
+
+# Create a histogram of player ratings
+plt.figure(figsize=(8, 4))
+plt.hist(playerRatings['ELO'], bins=300, edgecolor='k', alpha=0.75)
+plt.xlabel('Player Rating')
+plt.ylabel('Number of Players')
+plt.title('Distribution of Player Ratings')
+plt.grid(True)
+plt.show()
+
+# Create a scatter plot of Rating vs. UniqueOpenings
+plt.figure(figsize=(8, 6))
+plt.scatter(playerRatings['ELO'], playerRatings['countPlayerOpening'], alpha=0.75)
+plt.xlabel('Player Rating')
+plt.ylabel('Number of Unique Openings Played')
+plt.title('Player Rating vs. Unique Openings Played')
+plt.grid(True)
+plt.show()
 
 """
 SECTION - ABC
