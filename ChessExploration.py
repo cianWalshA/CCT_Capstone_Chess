@@ -18,6 +18,7 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from scipy import stats
 from pathlib import Path
 from datetime import datetime 
 
@@ -35,11 +36,11 @@ pgnIn_EnglineAnalysis = Path(rf"{csvFolder}\{pgnName}.tsv")
 pgnNameAllRating = "lichess_db_standard_rated_2023-06__allRatings"
 pgnIn_AllRatings = Path(rf"{csvAllRatingFolder}\{pgnNameAllRating}.csv")
 
-
+"""
 lichessData = pd.read_csv(pgnIn_EnglineAnalysis, sep='\t', nrows=100000)
 lichessData['UTC_dateTime'] = pd.to_datetime(lichessData['UTCDate'] + ' ' + lichessData['UTCTime'])
 lichessData.describe()
-
+"""
 
 allRatings = pd.read_csv(pgnIn_AllRatings)
 allRatings['UTC_dateTime'] = pd.to_datetime(allRatings['UTCDate'] + ' ' + allRatings['UTCTime'])
@@ -121,8 +122,24 @@ def summarize_columns(df, groupCols, prefixes, summaryStats):
     
     return summary_df
 
+def normal_test_subgroups(df, dataCol, subgroup , alpha):
+    results=[]
+    uniqueVals = pd.Series.unique(df[subgroup])
+    for value in uniqueVals:
+        subgroup_df = df[df[subgroup]==int(value)]
+        
+        #Apply Shapiro-Wilk Normality Test
+        tStat, pValue = stats.shapiro(subgroup_df[dataCol])
+        # Determine if the subgroup follows a normal distribution
+        normal = pValue > alpha
+        
+        results.append((value, tStat, pValue, normal))
+        print(rf"Variable: {dataCol} - Subgroup: {value} - test: {tStat} - p-Value: {pValue} - Normal: {normal}")
+    return pd.DataFrame(results, columns = [subgroup, 'testStatistic', 'pValue', 'isNormal'])
 
 
+
+"""
 lichessData = lichessData.join(pd.DataFrame(lichessData['SF_eval'].apply(ast.literal_eval).values.tolist()).add_prefix('eval')).drop(columns={'SF_eval'})
 lichessData = lichessData.join(pd.DataFrame(lichessData['SF_seldepth'].apply(ast.literal_eval).values.tolist()).add_prefix('seldepth')).drop(columns={'SF_seldepth'})
 
@@ -132,13 +149,13 @@ selectedCols = [col for col in lichessData.columns if col.startswith('eval')]
 lichessSummary = lichessData.groupby('Opening_x')[selectedCols].describe()
 lichessSummary.columns = [' '.join(col).strip() for col in lichessSummary.columns.values]
 
-
+"""
 
 
 
 """
 Section XYZ - Feature Extraction from Complete Set
-"""
+
 lichessData['whiteMoves_5'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 5))
 lichessData['blackMoves_5'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 5))
 lichessData['whiteMoves_10'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 10))
@@ -152,7 +169,7 @@ lichessData['whiteChecks'] = lichessData['whiteMoves'].str.count('+')
 lichessData['blackChecks'] = lichessData['whiteMoves'].str.count('+')
 lichessData['whiteTakes'] = lichessData['whiteMoves'].str.count('x')
 lichessData['blackTakes'] = lichessData['whiteMoves'].str.count('x')
-
+"""
 
 #Count and plot how many games based on move length
 
@@ -206,31 +223,84 @@ blackElo = allRatings[['Black','BlackElo']].rename(columns={'Black':'Player', 'B
 
 playerRatingsBoth = pd.concat([whiteElo,blackElo])
 playerRatings = playerRatingsBoth.groupby('Player')['ELO'].mean().reset_index(name='ELO')
-playerRatings=playerRatings.merge(uniquePlayerOpenings, left_on='Player', right_on='openingPlayer', how='left')
+playerRatings=playerRatings.merge(playerAnalysis, left_on='Player', right_on='openingPlayer', how='left')
 playerRatings = playerRatings.dropna(subset=['openingPlayer'])
 
 allRatings = allRatings.merge(playerRatings, left_on='openingPlayer', right_on='Player', how='left')
 
-playerRatings['ELO'] = pd.cut(playerRatings['ELO'], bins=6, labels=False)
+playersRatings10Games = playerRatings[playerRatings['countGames']>=10]
 
+alpha = 0.05
+tStat, pValue = stats.shapiro(playersRatings10Games['openingsUsedDivesity'])
+normal = pValue > alpha
+print(rf"Test Statistic: {tStat} - P-Value: {pValue} - Normal: {normal}")
 
-# Create a histogram of player ratings
-plt.figure(figsize=(8, 4))
-plt.hist(playerRatings['ELO'], bins=300, edgecolor='k', alpha=0.75)
-plt.xlabel('Player Rating')
-plt.ylabel('Number of Players')
-plt.title('Distribution of Player Ratings')
-plt.grid(True)
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+
+# Select relevant columns
+selected_columns = ['ratingDivided', 'openingsUsedDivesity']
+
+# Feature engineering (if needed)
+# Normalize or standardize the features
+scaler = StandardScaler()
+playersRatings10Games_T = pd.DataFrame()
+playersRatings10Games_T[selected_columns] = scaler.fit_transform(playersRatings10Games[selected_columns])
+
+# Combine features into a single feature matrix
+X = playersRatings10Games[selected_columns]
+
+# Determine the optimal number of clusters (e.g., using the Elbow Method)
+wcss = []
+for num_clusters in range(1, 11):
+    kmeans = KMeans(n_clusters=num_clusters, random_state=0)
+    kmeans.fit(X)
+    wcss.append(kmeans.inertia_)
+
+# Plot the Elbow Method curve to choose the number of clusters
+plt.plot(range(1, 11), wcss, marker='o')
+plt.xlabel('Number of Clusters')
+plt.ylabel('WCSS')
+plt.title('Elbow Method for Optimal Number of Clusters')
 plt.show()
 
-# Create a scatter plot of Rating vs. UniqueOpenings
-plt.figure(figsize=(8, 6))
-plt.scatter(playerRatings['ELO'], playerRatings['countPlayerOpening'], alpha=0.75)
-plt.xlabel('Player Rating')
-plt.ylabel('Number of Unique Openings Played')
-plt.title('Player Rating vs. Unique Openings Played')
-plt.grid(True)
-plt.show()
+# Choose the optimal number of clusters based on the plot (e.g., from the "elbow" point)
+
+# Perform K-means clustering with the chosen number of clusters
+optimal_num_clusters = 4  # Adjust this based on your analysis
+kmeans = KMeans(n_clusters=optimal_num_clusters, random_state=0)
+playersRatings10Games['Cluster'] = kmeans.fit_predict(X)
+
+cluster_means = playersRatings10Games.groupby('Cluster')[['ELO', 'openingsUsedDivesity']].mean().reset_index()
+cluster_means_sorted = cluster_means.sort_values(by='ELO', ascending=True)  # Replace 'Rating' with the desired feature
+cluster_mapping = {old_label: new_label for new_label, old_label in enumerate(cluster_means_sorted['Cluster'])}
+playersRatings10Games['Cluster'] = playersRatings10Games['Cluster'].map(cluster_mapping)
+
+# Analyze the clusters and divisions in ratings and diversity in openings
+cluster_centers = kmeans.cluster_centers_
+print("Cluster Centers:")
+print(cluster_centers)
+
+
+sns.scatterplot(data =playersRatings10Games, x='ELO', y= 'openingsUsedDivesity', hue = 'Cluster', alpha=0.5)
+sns.histplot(data=playersRatings10Games, 
+             x='openingsUsedDivesity', 
+             hue='Cluster', 
+             bins=30, 
+             kde=True, 
+             stat="density", 
+             palette='colorblind',
+             common_norm=False,
+             fill=True,
+             alpha=0.25)
+
+
+
+
+
+
+
 
 """
 SECTION - ABC

@@ -23,7 +23,7 @@ from pathlib import Path
 pgnFolder = r"E:\ChessData"
 csvFolder = r"E:\ChessData\newOutputs"
 pgnName = "lichess_db_standard_rated_2023-06"
-outputName = "_allRatings"
+outputName = "_allRatings2"
 #FIX MOVE LINES CODE
 
 def csvCommit(outFile, dictToWrite, csvHeaders):
@@ -112,4 +112,4 @@ def pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0 , 
     
 
 #Create DF from PGN (PERSONAL GAME NOTATION)
-pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0, timeControl=300, save = 1, overwrite=1, memoryLimitGB = 1, gameDepositLength= 10000)
+pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0, timeControl=0, save = 1, overwrite=1, memoryLimitGB = 1, gameDepositLength= 10000)
