@@ -234,5 +234,3 @@ for start_idx in range(0, len(lichessData), chunk_size):
 
 
 
-
-

@@ -33,7 +33,7 @@ csvAllRatingFolder = r"E:\ChessData\newOutputs"
 pgnName = "lichess_db_standard_rated_2023-06_2000_1m_row_analysed"
 pgnIn_EnglineAnalysis = Path(rf"{csvFolder}\{pgnName}.tsv")
 
-pgnNameAllRating = "lichess_db_standard_rated_2023-06__allRatings"
+pgnNameAllRating = r"lichess_db_standard_rated_2023-06__allRatings6GB"
 pgnIn_AllRatings = Path(rf"{csvAllRatingFolder}\{pgnNameAllRating}.csv")
 
 """
@@ -183,55 +183,117 @@ lichessData['blackTakes'] = lichessData['whiteMoves'].str.count('x')
 SECTION - ABC
 Exploration of rating distribution
 """
-
+#Get key information from openings dataframe
 openings['moveNumbers'] = openings['pgn'].apply(lambda x: extract_nth_words(x, 1, 3))
 openings['whiteMoves'] = openings['pgn'].apply(lambda x: extract_nth_words(x, 2, 3))
 openings['blackMoves'] = openings['pgn'].apply(lambda x: extract_nth_words(x, 3, 3))
 openings['moveCount'] = openings['moveNumbers'].str.split().str.len()
 openings['halfMoveCount'] = openings['whiteMoves'].str.split().str.len() + openings['blackMoves'].str.split().str.len()  
 openings['white_black'] = openings['halfMoveCount'].apply(lambda x: 'black' if x % 2 == 0 else 'white') 
-# Sort the DataFrame by columns 'a' and 'b'
+# Sort the Openings by their name and moves involved, only keep the minimal amount of moves to avoid complexity.
 openings = openings.sort_values(by=['name', 'halfMoveCount'])
 openings = openings.drop_duplicates(subset='name', keep='first')
 
-allRatings = allRatings.merge(openings, left_on='Opening', right_on='name', how='left')
-allRatings = allRatings.dropna(subset=['name']) 
+#Only Working with white openings - 
+openings = openings[openings['white_black']=='white']
+
+#Extraction of opening structure
+openings[['Basis', 'lineVariation']] = openings['name'].str.split(': ', 1, expand=True)
+openings['Line'] = openings['lineVariation'].str.split(',').str[0]
+openings['Variation'] = openings['lineVariation'].str.split(',',1).str[-1]
+openings['Variation'] = np.where(openings['Variation']==openings['Line'], None, (openings['Variation'].str.strip()))
+openings = openings.drop(columns=['moveNumbers', 'whiteMoves' , 'blackMoves', 'lineVariation'])
+
+#Drop Variation games, too much granularity
+openings = openings[pd.isna(openings['Line'])]
+
+#Adding opening information to chess games dataset
+allRatings = allRatings.merge(openings, left_on='Opening', right_on='name', how='inner')
 allRatings['openingPlayer'] = np.where(allRatings['white_black'] == 'black', allRatings['Black'], allRatings['White'])
-allRatings['openingPlayerRating'] = np.where(allRatings['white_black'] == 'black', allRatings['Black'], allRatings['White'])
+allRatings['openingPlayerRating'] = np.where(allRatings['white_black'] == 'black', allRatings['BlackElo'], allRatings['WhiteElo'])
 
+allPlayers= pd.DataFrame(allRatings['openingPlayer'].unique()).reset_index()
 
-openingsPlayed = allRatings.groupby('Opening').size().reset_index(name='Count')
-uniquePlayers = allRatings.groupby('Opening')['openingPlayer'].nunique().reset_index().rename(columns={'openingPlayer': 'countOpeningPlayers'})
+openingsPlayed = allRatings.groupby('Opening').size().reset_index(name='timesPlayed')
+uniquePlayers = allRatings.groupby('Opening')['openingPlayer'].nunique().reset_index().rename(columns={'openingPlayer': 'uniquePlayers'})
 openingAnalysis = openingsPlayed.merge(uniquePlayers, on='Opening')
-openingAnalysis['openingPlayerDiversity'] =(openingAnalysis['Count']-openingAnalysis['countOpeningPlayers'])/openingAnalysis['Count']
+openingAnalysis['openingPlayerDiversity'] =1-(openingAnalysis['timesPlayed']-openingAnalysis['uniquePlayers'])/openingAnalysis['timesPlayed']
 
 
 uniquePlayerOpenings = allRatings.groupby('openingPlayer')['Opening'].nunique().reset_index().rename(columns={'Opening': 'countPlayerOpening'})
 uniquePlayerGames = allRatings.groupby('openingPlayer').size().reset_index(name='countGames')
 playerAnalysis = uniquePlayerOpenings.merge(uniquePlayerGames, on='openingPlayer')
-playerAnalysis['openingsUsedDivesity'] =(playerAnalysis['countGames']-playerAnalysis['countPlayerOpening'])/playerAnalysis['countGames']
+playerAnalysis['openingsUsedDivesity'] =1-(playerAnalysis['countGames']-playerAnalysis['countPlayerOpening'])/playerAnalysis['countGames']
+
+playerOpenings =  allRatings.groupby(['openingPlayer', 'Opening']).size().reset_index(name='openingUseCount')
+playerOpenings['openingProbability'] = playerOpenings.groupby('openingPlayer')['openingUseCount'].apply(lambda x: x / float(x.sum()))# Calculate entropy for each player
+
+entropy = playerOpenings.groupby('openingPlayer').apply(lambda x: -np.sum(x['openingProbability'] * np.log2(x['openingProbability'])))
+
+# Calculate Gini coefficient for each player
+gini = playerOpenings.groupby('openingPlayer').apply(lambda x: 1 - np.sum(x['openingProbability']**2))
+
+# Calculate Concentration Index for each player
+concentrationIndex = playerOpenings.groupby('openingPlayer').apply(lambda x: 1 - 2 * np.sum((x['openingProbability'].cumsum() - x['openingProbability'] / 2)))
+
+# Combine results into a DataFrame
+diversity = pd.DataFrame({
+    'entropy': entropy,
+    'gini': gini,
+    'ConcentrationIndex': concentrationIndex
+}).reset_index()
+
+playerAnalysis = playerAnalysis.merge(diversity, on='openingPlayer', how='left')
 
 
-allRatings = allRatings.merge(openingAnalysis, on='Opening', how='left')
-allRatings = allRatings.merge(playerAnalysis, on='openingPlayer', how='left')
-allRatingsRatioFilter = allRatings[(allRatings['countOpeningPlayers']>100) & (allRatings['openingPlayerDiversity']>0.1)]
+allRatingsExp = allRatings.merge(openingAnalysis, on='Opening', how='left')
+allRatingsExp = allRatingsExp.merge(playerAnalysis, on='openingPlayer', how='left')
 
-playerRatings = allRatings.groupby('openingPlayer').size().reset_index(name='countGames')
+allRatingsRatioFilter = allRatingsExp[(allRatingsExp['uniquePlayers']>100) &
+                                      (allRatingsExp['openingsUsedDivesity']>=0.2) &
+                                      (allRatingsExp['openingPlayerDiversity']!=1) &
+                                      (allRatingsExp['countGames']>=10)
+                                      ]
+"""
 
-whiteElo = allRatings[['White','WhiteElo']].rename(columns={'White':'Player', 'WhiteElo':'ELO'})
-blackElo = allRatings[['Black','BlackElo']].rename(columns={'Black':'Player', 'BlackElo':'ELO'})
+allRatingsRatioFilter = allRatingsExp[(allRatingsExp['countPlayerOpening']!=1)&
+                                      allRatingsExp['countGames'] != allRatingsExp['countPlayerOpening'] &
+                                      (allRatingsExp['countGames']>=10)]
+"""
+
+playersForAnalysis = allRatingsRatioFilter['openingPlayer'].unique()
+
+
+whiteElo = allRatingsRatioFilter[['White','WhiteElo']].rename(columns={'White':'openingPlayer', 'WhiteElo':'ELO'})
+blackElo = allRatingsRatioFilter[['Black','BlackElo']].rename(columns={'Black':'openingPlayer', 'BlackElo':'ELO'})
 
 playerRatingsBoth = pd.concat([whiteElo,blackElo])
-playerRatings = playerRatingsBoth.groupby('Player')['ELO'].mean().reset_index(name='ELO')
-playerRatings=playerRatings.merge(playerAnalysis, left_on='Player', right_on='openingPlayer', how='left')
+playerRatings = playerRatingsBoth.groupby('openingPlayer')['ELO'].mean().reset_index(name='ELO')
+playerRatings = playerRatings.merge(playerAnalysis, on='openingPlayer', how='left')
 playerRatings = playerRatings.dropna(subset=['openingPlayer'])
+playerRatings = playerRatings[playerRatings['openingPlayer'].isin(playersForAnalysis)]
 
-allRatings = allRatings.merge(playerRatings, left_on='openingPlayer', right_on='Player', how='left')
+"""
+Calculate Shannon Diversity Index and use for tests
+"""
+"""
+player_groups = allRatingsRatioFilter.groupby('openingPlayer')['Opening'].value_counts().unstack(fill_value=0)
+total_games_played = player_groups.sum(axis=1)
+# Calculate the probability distribution of openings for each player
+probability_distribution = player_groups.div(total_games_played, axis=0)
+# Calculate Shannon's entropy for each player
+shannon_entropy = -np.sum(probability_distribution * np.log2(probability_distribution), axis=1)
+# Create a DataFrame with player diversity information
+player_diversity = pd.DataFrame({'openingPlayer': shannon_entropy.index, 'Diversity': shannon_entropy}).reset_index(drop=True)
 
-playersRatings10Games = playerRatings[playerRatings['countGames']>=10]
+playerRatings = playerRatings.merge(player_diversity, on='openingPlayer', how='left')
+"""
+playerRatings = playerRatings.sort_values(by=['ELO']).reset_index(drop=True)
+splits=3
+playerRatings['bins'] = pd.cut(x=playerRatings['ELO'], bins=splits, labels=np.arange(1,splits+1,1))
 
 alpha = 0.05
-tStat, pValue = stats.shapiro(playersRatings10Games['openingsUsedDivesity'])
+tStat, pValue = stats.shapiro(playerRatings['openingsUsedDivesity'])
 normal = pValue > alpha
 print(rf"Test Statistic: {tStat} - P-Value: {pValue} - Normal: {normal}")
 
@@ -240,21 +302,21 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
 # Select relevant columns
-selected_columns = ['ratingDivided', 'openingsUsedDivesity']
+selected_columns = ['ELO', 'openingsUsedDivesity']
 
 # Feature engineering (if needed)
 # Normalize or standardize the features
 scaler = StandardScaler()
-playersRatings10Games_T = pd.DataFrame()
-playersRatings10Games_T[selected_columns] = scaler.fit_transform(playersRatings10Games[selected_columns])
+playerRatingsT = pd.DataFrame()
+playerRatingsT[selected_columns] = scaler.fit_transform(playerRatings[selected_columns])
 
 # Combine features into a single feature matrix
-X = playersRatings10Games[selected_columns]
+X = playerRatingsT[selected_columns]
 
 # Determine the optimal number of clusters (e.g., using the Elbow Method)
 wcss = []
 for num_clusters in range(1, 11):
-    kmeans = KMeans(n_clusters=num_clusters, random_state=0)
+    kmeans = KMeans(n_clusters=num_clusters, random_state=1)
     kmeans.fit(X)
     wcss.append(kmeans.inertia_)
 
@@ -268,14 +330,14 @@ plt.show()
 # Choose the optimal number of clusters based on the plot (e.g., from the "elbow" point)
 
 # Perform K-means clustering with the chosen number of clusters
-optimal_num_clusters = 4  # Adjust this based on your analysis
+optimal_num_clusters = 3  # Adjust this based on your analysis
 kmeans = KMeans(n_clusters=optimal_num_clusters, random_state=0)
-playersRatings10Games['Cluster'] = kmeans.fit_predict(X)
+playerRatingsT['Cluster'] = kmeans.fit_predict(X)
 
-cluster_means = playersRatings10Games.groupby('Cluster')[['ELO', 'openingsUsedDivesity']].mean().reset_index()
-cluster_means_sorted = cluster_means.sort_values(by='ELO', ascending=True)  # Replace 'Rating' with the desired feature
+cluster_means = playerRatingsT.groupby('Cluster')[selected_columns].mean().reset_index()
+cluster_means_sorted = cluster_means.sort_values(by=selected_columns[0], ascending=True)  # Replace 'Rating' with the desired feature
 cluster_mapping = {old_label: new_label for new_label, old_label in enumerate(cluster_means_sorted['Cluster'])}
-playersRatings10Games['Cluster'] = playersRatings10Games['Cluster'].map(cluster_mapping)
+playerRatings['Cluster'] = playerRatingsT['Cluster'].map(cluster_mapping)
 
 # Analyze the clusters and divisions in ratings and diversity in openings
 cluster_centers = kmeans.cluster_centers_
@@ -283,23 +345,41 @@ print("Cluster Centers:")
 print(cluster_centers)
 
 
-sns.scatterplot(data =playersRatings10Games, x='ELO', y= 'openingsUsedDivesity', hue = 'Cluster', alpha=0.5)
-sns.histplot(data=playersRatings10Games, 
-             x='openingsUsedDivesity', 
-             hue='Cluster', 
-             bins=30, 
+sns.scatterplot(data =playerRatings, x=selected_columns[0], y= selected_columns[1], hue = 'Cluster', alpha=0.25 , palette='colorblind')
+plt.show()
+sns.histplot(data=playerRatings, 
+             x=selected_columns[1], 
+             hue='bins', 
+             bins=50, 
              kde=True, 
              stat="density", 
              palette='colorblind',
              common_norm=False,
              fill=True,
              alpha=0.25)
+plt.show()
 
 
 
 
 
+from scipy.stats import chi2_contingency
+# Create a contingency table of openings vs. players with counts
+contingency_table = pd.crosstab(allRatingsRatioFilter['Player'], allRatingsRatioFilter['Opening'])
 
+# Perform the Chi-Square Test for Independence
+chi2, p, dof, expected = chi2_contingency(contingency_table)
+
+# Check the p-value to determine if the association is significant
+if p < 0.05:
+    print("There is a significant association between player decisions and openings.")
+else:
+    print("There is no significant association between player decisions and openings.")
+
+# Display the expected frequencies
+expected_df = pd.DataFrame(expected, index=contingency_table.index, columns=contingency_table.columns)
+print("\nExpected Frequencies:")
+print(expected_df)
 
 
 """

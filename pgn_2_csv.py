@@ -18,12 +18,13 @@ import chess.pgn
 import re
 import pandas as pd
 import seaborn as sns
+import datetime
 from pathlib import Path
 
 pgnFolder = r"E:\ChessData"
 csvFolder = r"E:\ChessData\newOutputs"
 pgnName = "lichess_db_standard_rated_2023-06"
-outputName = "_allRatings6GB"
+outputName = "_allRatingsTest"
 #FIX MOVE LINES CODE
 
 def csvCommit(outFile, dictToWrite, csvHeaders):
@@ -35,7 +36,7 @@ def csvCommit(outFile, dictToWrite, csvHeaders):
         for row in dictToWrite:
             writer.writerow(row)
            
-def pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0 , timeControl=0, save=0, overwrite = 1, memoryLimitGB=1, gameDepositLength=10000):
+def pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0 , timeControl=0, save=0, overwrite = 1, dateReturn = None, memoryLimitGB=1, gameDepositLength=10000):
 
     pgnIn = Path(rf"{pgnFolder}\{pgnName}.pgn")
     pgnOut = Path(rf"{csvFolder}\{pgnName}_{outputName}.csv")
@@ -79,6 +80,9 @@ def pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0 , 
                     or dic['Termination'] in ['Abandoned', 'Rules infraction']
                     ):
                     pass
+                if dateReturn:
+                    if (datetime.strptime(dic["UTCDate"], "%Y-%m-%d")) == 1 :
+                        return
                 elif int(dic['WhiteElo']) >= whiteELO and int(dic['BlackElo']) >= blackELO and int(dic['TimeControl'].split('+')[0]) >= timeControl:
                     dic[header] = string
                     games.append(dic)
@@ -112,4 +116,4 @@ def pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0 , 
     
 
 #Create DF from PGN (PERSONAL GAME NOTATION)
-pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0, timeControl=300, save = 1, overwrite=1, memoryLimitGB = 6, gameDepositLength= 100000)
+pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0, timeControl=600, save = 1, overwrite=1, dateReturn=datetime(2023, 6,30),  memoryLimitGB = 8, gameDepositLength= 100000)
