@@ -21,11 +21,13 @@ from datetime import datetime
 stockfish_Path = Path(r"C:\Users\cianw\Chess Engines\Latest\stockfish-windows-x86-64-avx2\stockfish\stockfish-windows-x86-64-avx2.exe")
 lc0_Path = Path(r"C:\Users\cianw\Chess Engines\Latest\lc0-v0.30.0-windows-gpu-nvidia-cuda\lc0.exe")
  
+outputName = "allRatings"
 pgnFolder = r"E:\ChessData"
-csvFolder = r"E:\ChessData"
-pgnName = "lichess_games_filtered"
+csvFolder = r"E:\ChessData\explorationOutputs"
+pgnName = "allRatings"
 pgnIn = Path(rf"{csvFolder}\{pgnName}.tsv")
 pgnOut = Path(rf"{csvFolder}\{pgnName}_output_20230916.tsv")
+pgnOut_iter = Path(rf"{csvFolder}\{pgnName}_output_20230916_iter.tsv")
 
 lichessData = pd.read_csv(pgnIn, sep = "\t")
 lichessData['UTC_dateTime'] = pd.to_datetime(lichessData['UTCDate'] + ' ' + lichessData['UTCTime'])
@@ -87,7 +89,7 @@ def evaluateGame(games, loadedEngine, engineOptions):
         elif ((moveCount-games['halfMoveCount'])/10)==5:
             break
         elif (moveCount-games['halfMoveCount'])%10==0 and (moveCount-games['halfMoveCount'])>=0:
-            info1 = loadedEngine.analyse(board, limit=chess.engine.Limit(time=0.1), info=chess.engine.INFO_ALL)
+            info1 = loadedEngine.analyse(board, limit=chess.engine.Limit(time=1), info=chess.engine.INFO_ALL)
             score1 = info1['score'].white().score()
             evalList1.append(score1)
             depthList1.append(info1['depth'])
@@ -109,26 +111,34 @@ def process_data(chunk):
                                                                     axis=1, 
                                                                     result_type='expand')
     return pd.concat([chunk, chunk_out], axis=1)
-
+def csvCommit(outFile, dictToWrite, csvHeaders):
+    file_exists = os.path.isfile(outFile)
+    with open(outFile, mode='a', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=csvHeaders)
+        if not file_exists:
+            writer.writeheader()  # file doesn't exist yet, write a header
+        for row in dictToWrite:
+            writer.writerow(row)
 """
 Dataset Creation
 """
 
+lichessData['winLossDraw'] = lichessData['Result'].str.split('-').str[0]
+df = lichessData
+
 from sklearn.model_selection import train_test_split
 
 
-
-df = lichessData[[openingVariable, 'ELO']]
-sample_df, = train_test_split(df[['ELO',openingVariable]]
-                                                    , train_size=0.1
-                                                    , random_state=123
-                                                    , stratify=df[openingVariable])
-                                           
+sample_df,_ = train_test_split(df
+                               , train_size=0.01
+                               , random_state=123
+                               , stratify=df[[openingVariable, 'whiteWin']])
+                                     
 """
 Application of Engine Analysis
 """
 
-chunk_size = 10000  # Adjust this based on your memory constraints
+chunk_size = 1000  # Adjust this based on your memory constraints
 # Define your data processing function here
 
 
@@ -151,7 +161,15 @@ for start_idx in range(0, len(analysis_df), chunk_size):
         processed_df = pd.concat([processed_df, processed_chunk], ignore_index=True)
     except Exception as e:
         print(f"Error occurred: {e}")
+    
+    if os.path.exists(pgnOut_iter):
+        processed_chunk.to_csv(pgnOut_iter, sep="\t", mode='a', header=False)
+    else:
+        processed_chunk.to_csv(pgnOut_iter, sep="\t", mode='w')
+        
+    
     print(time.time()-startTime)
+    print(f"{start_idx} Completed")
 
 # Save the final processed DataFrame to a file
 processed_df.to_csv(pgnOut, sep="\t")

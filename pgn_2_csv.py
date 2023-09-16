@@ -22,7 +22,7 @@ import datetime
 from pathlib import Path
 
 pgnFolder = r"E:\ChessData"
-csvFolder = r"E:\ChessData\explorationOutputs"
+csvFolder = r"E:\ChessData\newOutputs"
 pgnName = "lichess_db_standard_rated_2023-06"
 outputName = "_10MinGames_15Jun2023_limit_10GB"
 #FIX MOVE LINES CODE
