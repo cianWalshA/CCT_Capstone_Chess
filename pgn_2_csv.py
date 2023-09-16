@@ -22,9 +22,9 @@ import datetime
 from pathlib import Path
 
 pgnFolder = r"E:\ChessData"
-csvFolder = r"E:\ChessData\newOutputs"
+csvFolder = r"E:\ChessData\explorationOutputs"
 pgnName = "lichess_db_standard_rated_2023-06"
-outputName = "_allRatingsTest"
+outputName = "_10MinGames_15Jun2023_limit_10GB"
 #FIX MOVE LINES CODE
 
 def csvCommit(outFile, dictToWrite, csvHeaders):
@@ -80,9 +80,7 @@ def pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0 , 
                     or dic['Termination'] in ['Abandoned', 'Rules infraction']
                     ):
                     pass
-                if dateReturn:
-                    if (datetime.strptime(dic["UTCDate"], "%Y-%m-%d")) == 1 :
-                        return
+
                 elif int(dic['WhiteElo']) >= whiteELO and int(dic['BlackElo']) >= blackELO and int(dic['TimeControl'].split('+')[0]) >= timeControl:
                     dic[header] = string
                     games.append(dic)
@@ -93,9 +91,13 @@ def pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0 , 
                     pass
                 
                 gameProcessed+=1
+                if dateReturn != None:
+                    if (datetime.datetime.strptime(dic["UTCDate"], "%Y.%m.%d")) == dateReturn :
+                        return print(rf"Date limit of {dateReturn} reached")
                 if gameProcessed%gameDepositLength == 0:
                     print(rf"Games Processed: {gameProcessed}")
                 dic = dict.fromkeys(pgnLabels)
+                
                 
             else:
                 pass
@@ -116,4 +118,4 @@ def pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0 , 
     
 
 #Create DF from PGN (PERSONAL GAME NOTATION)
-pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0, timeControl=600, save = 1, overwrite=1, dateReturn=datetime(2023, 6,30),  memoryLimitGB = 8, gameDepositLength= 100000)
+pgn_2_csv_fix_lines(pgnName, pgnFolder, csvFolder, whiteELO=0, blackELO=0, timeControl=600, save = 1, overwrite=1, dateReturn=(datetime.date(2023, 6,15)),  memoryLimitGB = 10, gameDepositLength= 100000)
