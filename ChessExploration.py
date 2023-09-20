@@ -55,8 +55,8 @@ stockfish_Path = Path(r"C:\Users\cianw\Chess Engines\Latest\stockfish-windows-x8
 lc0_Path = Path(r"C:\Users\cianw\Chess Engines\Latest\lc0-v0.30.0-windows-gpu-nvidia-cuda\lc0.exe")
  
 pgnFolder = r"E:\ChessData"
-csvFolder = r"E:\ChessData\explorationOutputs"
-csvAllRatingFolder = r"E:\ChessData\explorationOutputs"
+csvFolder = r"E:\ChessData"
+csvAllRatingFolder = r"E:\ChessData\newOutputs"
 outputFolder = r"C:\Users\cianw\Documents\dataAnalytics\projectFinal\figureOutputs"
 
 pgnName = "lichess_db_standard_rated_2023-06_2000_1m_row_analysed"
@@ -136,46 +136,6 @@ def summarize_columns(df, groupCols, prefixes, summaryStats):
 
 
 """
-lichessData = lichessData.join(pd.DataFrame(lichessData['SF_eval'].apply(ast.literal_eval).values.tolist()).add_prefix('eval')).drop(columns={'SF_eval'})
-lichessData = lichessData.join(pd.DataFrame(lichessData['SF_seldepth'].apply(ast.literal_eval).values.tolist()).add_prefix('seldepth')).drop(columns={'SF_seldepth'})
-
-lichessData = lichessData.dropna(subset='eval4')
-
-selectedCols = [col for col in lichessData.columns if col.startswith('eval')]
-lichessSummary = lichessData.groupby('Opening_x')[selectedCols].describe()
-lichessSummary.columns = [' '.join(col).strip() for col in lichessSummary.columns.values]
-
-"""
-
-
-
-"""
-Section XYZ - Feature Extraction from Complete Set
-
-lichessData['whiteMoves_5'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 5))
-lichessData['blackMoves_5'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 5))
-lichessData['whiteMoves_10'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 10))
-lichessData['blackMoves_10'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 10))
-lichessData['whiteMoves_20'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 20))
-lichessData['blackMoves_20'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 20))
-lichessData['whiteMoves_30'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 2, 3, 30))
-lichessData['blackMoves_30'] = lichessData['Moves'].apply(lambda x: extract_nth_words(x, 3, 3, 30))
-
-lichessData['whiteChecks'] = lichessData['whiteMoves'].str.count('+')
-lichessData['blackChecks'] = lichessData['whiteMoves'].str.count('+')
-lichessData['whiteTakes'] = lichessData['whiteMoves'].str.count('x')
-lichessData['blackTakes'] = lichessData['whiteMoves'].str.count('x')
-"""
-
-#Count and plot how many games based on move length
-
-#Count and plot how many games based on each opening
-
-
-print(1)
-#Where move count >= 5, >=10 return 10th and 20th values of rating respectively?
-
-"""
 ###########################################################################################################################
 Section 2
 Opening ECO Filtering
@@ -227,7 +187,9 @@ allRatings['whiteWin'] = np.where(allRatings['Result'].str.split('-').str[0] == 
 #Analysis of Openings used in Lichess database
 openingsPlayed = allRatings.groupby(openingVariable).size().reset_index(name='timesPlayed')
 uniquePlayers = allRatings.groupby(openingVariable)['openingPlayer'].nunique().reset_index().rename(columns={'openingPlayer': 'uniquePlayers'})
+whiteWins = allRatings.groupby(openingVariable)['whiteWin'].sum().reset_index().rename(columns={'openingPlayer': 'wins'})
 openingAnalysis = openingsPlayed.merge(uniquePlayers, on=openingVariable)
+openingAnalysis = openingAnalysis.merge(whiteWins, on=openingVariable)
 openingAnalysis['useRatio'] = openingAnalysis['timesPlayed']/openingAnalysis['timesPlayed'].sum()
 openingAnalysis['openingPlayerDiversity'] =1-(openingAnalysis['timesPlayed']-openingAnalysis['uniquePlayers'])/openingAnalysis['timesPlayed']
 print(openingAnalysis.describe())
@@ -327,6 +289,7 @@ Clustering Tests - Diversity in player opening Selection
 
 selected_columns = ['ELO', 'playGini', 'playEntropy']
 
+playerRatings['bins'] = pd.cut(playerRatings['ELO'], bins=3, labels=False)
 
 # Normalize or standardize the features
 scaler = MinMaxScaler()
@@ -464,7 +427,7 @@ from scipy.stats import chi2_contingency
 from scipy.cluster.hierarchy import linkage, dendrogram
 
 # Create a contingency table of openings vs. players with counts
-contingency_table = pd.crosstab(allRatings['Cluster'], allRatings[openingVariable])
+contingency_table = pd.crosstab(allRatings['bins'], allRatings[openingVariable])
 
 # Perform the Chi-Square Test for Independence
 chi2, p, dof, expected = chi2_contingency(contingency_table)
@@ -539,6 +502,12 @@ for num_clusters in cluster_range:
         silhouette_scores2.append(silhouette_avg)
         silhouette_clusters2.append(num_clusters)
 
+import pickle
+
+# It is important to use binary access
+with open(rf"{outputFolder}\km.pickle", 'wb') as f:
+    pickle.dump(kmeans, f)
+    
 # Plot WCSS (Elbow Method) on the left Y-axis
 fig5, ax3 = plt.subplots(figsize=(10, 6), dpi=600)
 ax3.plot(sse_clusters2, sse_scores2, marker='o', label='WCSS')
@@ -613,6 +582,7 @@ allRatings.to_csv(rf"{csvFolder}\allRatings.tsv", sep='\t')
 playerRatings.to_csv(rf"{csvFolder}\playerRatings_CLUSTER.tsv", sep='\t')
 openingAnalysis.to_csv(rf"{csvFolder}\openingAnalysis.tsv", sep='\t')
 pivot_df[['ELO', 'openingPlayer', 'Cluster_openings']].to_csv(rf"{csvFolder}\playerOpenings_CLUSTER.tsv", sep='\t')
+playerOpenings.to_csv(rf"{csvFolder}\playerOpenings.tsv", sep='\t')
 
 
 

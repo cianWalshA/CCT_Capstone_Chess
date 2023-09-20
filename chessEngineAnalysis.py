@@ -3,6 +3,7 @@
 import sys
 import io
 import os
+import ast
 import time
 import csv
 import chess
@@ -26,8 +27,8 @@ pgnFolder = r"E:\ChessData"
 csvFolder = r"E:\ChessData\explorationOutputs"
 pgnName = "allRatings"
 pgnIn = Path(rf"{csvFolder}\{pgnName}.tsv")
-pgnOut = Path(rf"{csvFolder}\{pgnName}_output_20230916.tsv")
-pgnOut_iter = Path(rf"{csvFolder}\{pgnName}_output_20230916_iter.tsv")
+pgnOut = Path(rf"{csvFolder}\{pgnName}_output_20230918.tsv")
+pgnOut_iter = Path(rf"{csvFolder}\{pgnName}_output_20230918_iter.tsv")
 
 lichessData = pd.read_csv(pgnIn, sep = "\t")
 lichessData['UTC_dateTime'] = pd.to_datetime(lichessData['UTCDate'] + ' ' + lichessData['UTCTime'])
@@ -43,31 +44,7 @@ stockfish_engine.configure(stockfish_options)
 #lc0_engine = chess.engine.SimpleEngine.popen_uci(lc0_Path)
 #lc0_options = {'NNCacheSize':0}
 
-#Function to Extract Every Nth Word of a string delimted by spaces starting at position M, up to N*O words.
-def extract_nth_words(text, M, N, O=None):
-    words = text.split()
-    if O is None:
-        endIndex = len(words)
-    else: 
-        endIndex = min(M-1+N*O, len(words))
-    result = [words[i] for i in range(M - 1, endIndex, N)]
-    return ' '.join(result)
 
-#Function to return every ith element of a list that was saved as a string
-def get_ith_element(lst, i):
-    res = lst.strip('][').split(', ')
-    if len(res) >= i+1:
-        return res[i]
-    else:
-        return None
-
-def get_final_fen(pgn):
-    bongCloudPosition = io.StringIO(pgn)
-    game = chess.pgn.read_game(bongCloudPosition)
-    board = game.board()
-    for move in game.mainline_moves():
-        board.push(move)
-    return board.fen()
 
 def evaluateGame(games, loadedEngine, engineOptions):
     global linesProcessed, dataFrameSize, printThreshold, start_time
@@ -88,7 +65,7 @@ def evaluateGame(games, loadedEngine, engineOptions):
             pass
         elif ((moveCount-games['halfMoveCount'])/10)==5:
             break
-        elif (moveCount-games['halfMoveCount'])%10==0 and (moveCount-games['halfMoveCount'])>=0:
+        elif ((moveCount-games['halfMoveCount']))%10==0 and (moveCount-games['halfMoveCount'])>=0:
             info1 = loadedEngine.analyse(board, limit=chess.engine.Limit(time=1), info=chess.engine.INFO_ALL)
             score1 = info1['score'].white().score()
             evalList1.append(score1)
@@ -138,7 +115,7 @@ sample_df,_ = train_test_split(df
 Application of Engine Analysis
 """
 
-chunk_size = 1000  # Adjust this based on your memory constraints
+chunk_size = 500  # Adjust this based on your memory constraints
 # Define your data processing function here
 
 
@@ -152,8 +129,8 @@ processed_df = pd.DataFrame()
 
 for start_idx in range(0, len(analysis_df), chunk_size):
     startTime = time.time()
-    end_idx = min(start_idx + chunk_size, len(analysis_df))
-    chunk = df.iloc[start_idx:end_idx]
+    end_idx = start_idx + chunk_size
+    chunk = analysis_df.iloc[start_idx:end_idx]
     
     try:
         # Process the chunk and add new columns
@@ -173,16 +150,6 @@ for start_idx in range(0, len(analysis_df), chunk_size):
 
 # Save the final processed DataFrame to a file
 processed_df.to_csv(pgnOut, sep="\t")
-
-#readin1 = pd.read_csv("E:\ChessData\lichess_db_standard_rated_2023-06_2000_160000_rows.tsv", sep = "\t")
-#readin2 = pd.read_csv("E:\ChessData\lichess_db_standard_rated_2023-06_2000_remainder.tsv", sep = "\t")
-
-#stacked_df = pd.concat([readin1, readin2])
-
-#stacked_df.to_csv("E:\ChessData\lichess_db_standard_rated_2023-06_2000_1m_row_analysed.tsv", sep="\t")
-
-
-
 
 
 
