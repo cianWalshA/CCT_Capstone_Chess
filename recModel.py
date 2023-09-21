@@ -149,47 +149,75 @@ def get_final_fen(pgn):
 def extract_features(pgn, X, Y):    # Initialize a dictionary to store the features
     features = {
         'pawn_moves': 0,
+        'center_pawns': 0,
+        'flank_pawns':0,
         'piece_moves': 0,
+        'developed_pieces': 0,
+        'center_pieces': 0,
+        'minor_moves': 0,
+        'queen_moves': 0,
+        'queen_retreat': 0,
+        'king_moves': 0,
+        'king_forward': 0,
+        'minor_retreat':0,
         'castles': 0,
         'checks': 0,
-        'captures': 0,
-        'developed_pieces': 0,
-        'center_pawns': 0,
-        'center_pieces': 0
+        'captures': 0
     }
 
     moves = pgn.split()
 
     # Extract moves within the specified range [X, Y]
     moves = moves[X:(Y+X)]
+    movesPlayed = len(moves)
 
     for move in moves:
         # Ignore move numbers
         if '.' not in move:
             # Count pawn moves (e.g., e4, d5)
             if re.match('^[a-h][1-8]$', move):
-                features['pawn_moves'] += 1
+                features['pawn_moves'] += (1/movesPlayed)
                 # Count center pawns
                 if re.match('^[de][45]$', move):
-                    features['center_pawns'] += 1
+                    features['center_pawns'] += (1/movesPlayed)
+                if re.match('^[ah][1-8]$', move):
+                    features['flank_pawns'] += (1/movesPlayed)
             # Count piece moves (e.g., Nf3, Bb5)
             if re.match('^[NBRQK][a-h][1-8]$', move):
-                features['piece_moves'] += 1
+                features['piece_moves'] += (1/movesPlayed)
                 # Count developed pieces
-                if re.match('^[NBRQK][a-h][12345678]$', move):
-                    features['developed_pieces'] += 1
+                if re.match('^[NBR][a-h][2-8]$', move):
+                    features['developed_pieces'] += (1/movesPlayed)
+                #Count Minor Retreat
+                if re.match('^[NBR][a-h][1]$', move):
+                    features['minor_retreat'] += (1/movesPlayed)
                 # Count center pieces
                 if re.match('^[NBRQK][de][45]$', move):
-                    features['center_pieces'] += 1
+                    features['center_pieces'] += (1/movesPlayed)
+                # Count Minor Piece Moves
+                if re.match('^[NBR][a-h][1-8]$', move):
+                    features['minor_moves'] += (1/movesPlayed)
+                # Count Queen Moves
+                if re.match('^[Q][a-h][2-8]$', move):
+                    features['queen_moves'] += (1/movesPlayed)
+                # Count Queen retreat
+                if re.match('^[Q][a-h][1]$', move):
+                    features['queen_retreat'] += (1/movesPlayed)
+                # Count King Moves
+                if re.match('^[K][a-h][1]$', move):
+                    features['king_moves'] += (1/movesPlayed)    
+                # Count King Forward
+                if re.match('^[K][a-h][2-8]$', move):
+                    features['king_forward'] += (1/movesPlayed)   
             # Count castling moves (O-O or O-O-O)
             if 'O-O' in move:
-                features['castles'] += 1
+                features['castles'] += (1/movesPlayed)
             # Count checks (+)
             if '+' in move:
-                features['checks'] += 1
+                features['checks'] += (1/movesPlayed)
             # Count captures (x)
             if 'x' in move:
-                features['captures'] += 1
+                features['captures'] += (1/movesPlayed)
     return features
 
 
@@ -370,7 +398,7 @@ for model_name, model in models:
     modelTestResults.append((model_name, mse, r2))
 
 
-
+pd.DataFrame(modelTestResults).to_csv(rf"{csvFolder}\modelTestResults.tsv", sep='\t')
 
 
 """
