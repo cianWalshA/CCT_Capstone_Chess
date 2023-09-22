@@ -540,7 +540,7 @@ for i in clusters:
                                    ,10
                                    )
     rec_df['cluster'] = i
-    recommendation_cluster_behavior_df = pd.concat(recommendation_cluster_behavior_df,rec_df)
+    recommendation_cluster_behavior_df = pd.concat([recommendation_cluster_behavior_df,rec_df])
 
 recommendation_cluster_behavior_df.to_csv(rf"{csvFolder}\rec_clust_behav.tsv", sep='\t')
 
@@ -560,7 +560,88 @@ for i in clusters:
                                    ,10
                                    )
     rec_sr_df['cluster'] = i
-    recommendation_cluster_sr_df = pd.concat(recommendation_cluster_sr_df,rec_sr_df)
+    recommendation_cluster_sr_df = pd.concat([recommendation_cluster_sr_df,rec_sr_df])
 recommendation_cluster_sr_df.to_csv(rf"{csvFolder}\rec_clust_sr.tsv", sep='\t')
+
+
+
+combinedRecommendations = pd.DataFrame(playersList, columns={'openingPlayer'}).merge(
+                                        rec_po_sr_df   , on='openingPlayer', how ='left', suffixes=('', '_wr')).merge(                
+                                        rec_eval0_sr_df, on='openingPlayer', how ='left', suffixes=('', '_eval0')).merge(                                        
+                                        rec_eval1_sr_df   , on='openingPlayer', how ='left',suffixes=('', '_eval1')).merge(                                        
+                                        rec_beh_sr_df   , on='openingPlayer', how ='left',suffixes=('', '_beh')).merge(                                        
+                                        recommendation_cluster_sr_df.drop(columns=('cluster'))   , on='openingPlayer', how ='left',suffixes=('', '_clust_wr')).merge(                                        
+                                        recommendation_cluster_behavior_df.drop(columns=('cluster'))    , on='openingPlayer', how ='left',suffixes=('', '_clust_beh'))
+                       
+                                
+    
+from difflib import SequenceMatcher
+from itertools import combinations
+
+                                           
+combinedRecommendations =combinedRecommendations.dropna()
+combinedRecommendations = combinedRecommendations.drop(columns=['openingPlayer']).reset_index(drop=True)
+combinedRecommendations = combinedRecommendations.rename(columns={
+    'Recommendations':'Win/Loss',
+    'Recommendations_eval0':'Opening Evaluation',
+    'Recommendations_eval1':'Opening Move 5 Evaluation',
+    'Recommendations_beh':'Player Behaviour',
+    'Recommendations_clust_wr':'Clustered Win/Loss',
+    'Recommendations_clust_beh':'Clustered Player Behaviour'})
+
+# Define a function to calculate Jaccard similarity
+def jaccard_similarity(list1, list2):
+    s1 = set(list1)
+    s2 = set(list2)
+    return len(s1.intersection(s2)) / len(s1.union(s2))
+# Define a function to calculate Sequence similarity
+def sequence_similarity(list1, list2):
+    s1 = list1
+    s2 = list2
+    return SequenceMatcher(None, s1, s2).ratio()
+
+# Calculate Jaccard/Sequence similarities and create a DataFrame
+jaccard_similarities = pd.DataFrame(index=combinedRecommendations.columns, columns=combinedRecommendations.columns)
+sequence_similarities = pd.DataFrame(index=combinedRecommendations.columns, columns=combinedRecommendations.columns)
+
+for col1 in combinedRecommendations.columns:
+    for col2 in combinedRecommendations.columns:
+        j_similarities = []
+        s_similarities = []
+        for i in range(len(combinedRecommendations)):
+            j_similarities.append(jaccard_similarity(combinedRecommendations[col1][i], combinedRecommendations[col2][i]))
+            s_similarities.append(sequence_similarity(combinedRecommendations[col1][i], combinedRecommendations[col2][i]))
+        jaccard_similarities.loc[col1, col2] = np.mean(j_similarities)
+        sequence_similarities.loc[col1, col2] = np.mean(s_similarities)
+
+# Convert to float type
+jaccard_similarities = jaccard_similarities.astype(float)
+sequence_similarities = sequence_similarities.astype(float)
+
+# Create a heatmap for Jaccard similarities
+sns.heatmap(jaccard_similarities, annot=True)
+plt.show()
+# Create a heatmap for Sequence similarities
+sns.heatmap(sequence_similarities, annot=True)
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
