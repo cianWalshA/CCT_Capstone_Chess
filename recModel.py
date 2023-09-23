@@ -27,22 +27,12 @@ from scipy.sparse import csr_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import Lasso
-from sklearn.svm import SVR
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.metrics import mean_squared_error
-from sklearn.preprocessing import minmax_scale
+from sklearn.metrics import mean_squared_error, r2_score
 
-import tensorflow as tf
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
-from tensorflow.keras.layers import Input, Embedding, Flatten, Concatenate, Dense
-from tensorflow.keras.models import Model
-from keras.layers import Reshape
 from sklearn.metrics.pairwise import cosine_similarity
-from scipy.sparse import csr_matrix
-import random
 
 """
 ###########################################################################################################################
@@ -319,17 +309,18 @@ selectedCols = [col for col in engineAnalysis.columns if 'eval' in col]
 engineSummary = engineAnalysis.groupby('Opening')[selectedCols].describe()
 engineSummary.columns = [' '.join(col).strip() for col in engineSummary.columns.values]
 medianCols = [col for col in engineSummary.columns if '50%' in col]
-engineSummary = engineSummary[medianCols].reset_index()
+engineSummary = engineSummary[['eval0 50%','eval1 50%','eval2 50%','eval3 50%']].reset_index()
 
-scaler = MinMaxScaler()
-engineSummary_scaled = scaler.fit_transform(engineSummary[medianCols])
-engineSummary_scaled = pd.DataFrame(engineSummary_scaled, columns = medianCols)
-engineSummary_scaled = engineSummary_scaled.join(engineSummary['Opening'])
+engineSummary = engineSummary.merge(openingAnalysis[['Opening','successRatio']], on='Opening', how='left').rename(columns={'eval0 50%':'Evaluation After Opening',
+                                                            'eval1 50%':'Evaluation After 5 Moves',
+                                                            'eval2 50%':'Evaluation After 10 Moves',
+                                                            'eval3 50%':'Evaluation After 15 Moves',
+                                                            'successRatio':'Win/Loss'
+                                                            })
+linearCols= ['Evaluation After Opening','Evaluation After 5 Moves','Evaluation After 10 Moves','Evaluation After 15 Moves']
 
-engineSummary = engineSummary.merge(openingAnalysis[['Opening','successRatio']], on='Opening', how='left')
-
-analysisCols = medianCols.copy()
-analysisCols.append('successRatio')
+analysisCols = ['Win/Loss']
+analysisCols.extend(linearCols)
 sns.pairplot(engineSummary[analysisCols])
 plt.show()
 
@@ -337,17 +328,61 @@ plt.show()
 correlation_matrix = engineSummary[analysisCols].corr()
 
 # Create a heatmap of the correlation matrix
-plt.figure(figsize=(8, 6))
-sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
-plt.title('Correlation Heatmap')
+plt.figure(figsize=(8, 6), dpi=600)
+sns.heatmap(correlation_matrix, annot=True, cmap='mako_r', fmt=".2f")
+#plt.title('Correlation Heatmap')
 plt.show()
 
-usefulCols=['Opening', 'eval0 50%','eval1 50%'] 
+usefulCols=['Opening', 'Evaluation After Opening','Evaluation After 5 Moves'] 
+
+scaler = MinMaxScaler()
+engineSummary_scaled = scaler.fit_transform(engineSummary[linearCols])
+engineSummary_scaled = pd.DataFrame(engineSummary_scaled, columns = linearCols)
+engineSummary_scaled = engineSummary_scaled.join(engineSummary['Opening'])
+
+engineSummary_scaled_linear= engineSummary_scaled.merge(openingAnalysis, on='Opening', how='left').dropna()
+y = engineSummary_scaled_linear['Win/Loss']
+X = engineSummary[['Evaluation After Opening','Evaluation After 5 Moves','Evaluation After 10 Moves','Evaluation After 15 Moves']].dropna()
+
+evalTestResults = []
+
+# Create a 2x2 grid of subplots for the results
+fig, axes = plt.subplots(2, 2, figsize=(16, 10), dpi=600)
+axes = axes.ravel()
+
+for i, eval_column in enumerate(X.columns):
+    X_train, X_test, y_train, y_test = train_test_split(X[[eval_column]], y, test_size=0.33, random_state=123)
+    
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    
+    y_pred = model.predict(X_test)
+    
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+    
+    # Plot the results in the corresponding subplot
+    axes[i].scatter(X_test, y_test, color='blue', label='Actual', alpha=0.6, edgecolor='black', s=60)
+    axes[i].scatter(X_test, y_pred, color='red', label='Predicted', alpha=0.6, edgecolor='black', s=60)
+    axes[i].set_title(f'R-Squared: {r2:.3f}', fontsize=12)
+    #axes[i].set_ylim(0,1)
+    #axes[i].set_xlim(0,1)
+    axes[i].legend()
+    
+    # Set axis labels
+    axes[i].set_xlabel(eval_column, fontsize=10)
+    axes[i].set_ylabel('Win/Loss Ratio', fontsize=10)
+    
+    evalTestResults.append((eval_column, mse, r2))
+
+# Adjust subplot spacing and display the plot
+plt.tight_layout()
+plt.show()
+
+
 
 openingAnalysis = openingAnalysis.merge(engineSummary_scaled[usefulCols], on='Opening', how='left')
-openingAnalysis[[ 'eval0 50%','eval1 50%']]=openingAnalysis[[ 'eval0 50%','eval1 50%']].fillna(0)
-
-
+openingAnalysis[['Evaluation After Opening','Evaluation After 5 Moves']]=openingAnalysis[[ 'Evaluation After Opening','Evaluation After 5 Moves']].fillna(0)
 
 
 
@@ -480,27 +515,36 @@ rec_po_sr_df = knn_recommender_multi(po_winProb_inter_table
                                )
 rec_po_sr_df.to_csv(rf"{csvFolder}\rec_po_sr_df.tsv", sep='\t')
 
+rec_po_sr_df = pd.read_csv(rf"{csvFolder}\rec_po_sr_df.tsv", sep='\t', index_col=[0])
+rec_po_sr_df['Recommendations'] = rec_po_sr_df['Recommendations'].apply(lambda x: ast.literal_eval(x))
+
 rec_eval0_sr_df = knn_recommender_multi(po_winProb_inter_table
                                , po_players
                                , 'Opening'
                                , 'openingPlayer'
-                               , 'eval0 50%'
+                               , 'Evaluation After Opening'
                                , po_winProb_inter_table
                                , playerOpeningCombinations
                                ,10
                                )
 rec_eval0_sr_df.to_csv(rf"{csvFolder}\rec_eval0_sr_df.tsv", sep='\t')
 
+rec_eval0_sr_df = pd.read_csv(rf"{csvFolder}\rec_eval0_sr_df.tsv", sep='\t', index_col=[0])
+rec_eval0_sr_df['Recommendations'] = rec_eval0_sr_df['Recommendations'].apply(lambda x: ast.literal_eval(x))
+
 rec_eval1_sr_df = knn_recommender_multi(po_winProb_inter_table
                                , po_players
                                , 'Opening'
                                , 'openingPlayer'
-                               , 'eval1 50%'
+                               , 'Evaluation After 5 Moves'
                                , po_winProb_inter_table
                                , playerOpeningCombinations
                                ,10
                                )
 rec_eval1_sr_df.to_csv(rf"{csvFolder}\rec_eval1_sr_df.tsv", sep='\t')
+
+rec_eval1_sr_df = pd.read_csv(rf"{csvFolder}\rec_eval1_sr_df.tsv", sep='\t', index_col=[0])
+rec_eval1_sr_df['Recommendations'] = rec_eval1_sr_df['Recommendations'].apply(lambda x: ast.literal_eval(x))
 
 #Behaviour Based
 p_df = rds_player_agg_scaled
@@ -517,6 +561,8 @@ rec_beh_sr_df = knn_recommender_multi(p_df
                                )
 rec_beh_sr_df.to_csv(rf"{csvFolder}\rec_beh_sr_df.tsv", sep='\t')
 
+rec_beh_sr_df = pd.read_csv(rf"{csvFolder}\rec_beh_sr_df.tsv", sep='\t', index_col=[0])
+rec_beh_sr_df['Recommendations'] = rec_beh_sr_df['Recommendations'].apply(lambda x: ast.literal_eval(x))
 
 
 
@@ -544,6 +590,9 @@ for i in clusters:
 
 recommendation_cluster_behavior_df.to_csv(rf"{csvFolder}\rec_clust_behav.tsv", sep='\t')
 
+recommendation_cluster_behavior_df = pd.read_csv(rf"{csvFolder}\rec_clust_behav.tsv", sep='\t', index_col=[0])
+recommendation_cluster_behavior_df['Recommendations'] = recommendation_cluster_behavior_df['Recommendations'].apply(lambda x: ast.literal_eval(x))
+
 recommendation_cluster_sr_df = pd.DataFrame()
 for i in clusters:
     
@@ -562,6 +611,9 @@ for i in clusters:
     rec_sr_df['cluster'] = i
     recommendation_cluster_sr_df = pd.concat([recommendation_cluster_sr_df,rec_sr_df])
 recommendation_cluster_sr_df.to_csv(rf"{csvFolder}\rec_clust_sr.tsv", sep='\t')
+
+recommendation_cluster_sr_df = pd.read_csv(rf"{csvFolder}\rec_clust_sr.tsv", sep='\t', index_col=[0])
+recommendation_cluster_sr_df['Recommendations'] = recommendation_cluster_sr_df['Recommendations'].apply(lambda x: ast.literal_eval(x))
 
 
 
@@ -619,10 +671,14 @@ jaccard_similarities = jaccard_similarities.astype(float)
 sequence_similarities = sequence_similarities.astype(float)
 
 # Create a heatmap for Jaccard similarities
-sns.heatmap(jaccard_similarities, annot=True)
+plt.figure(figsize=(8, 6), dpi=600)
+sns.heatmap(jaccard_similarities, annot=True, cmap='mako_r', fmt=".2f")
+plt.savefig(rf"{outputFolder}\jaccardHeat.png", bbox_inches="tight")
 plt.show()
 # Create a heatmap for Sequence similarities
-sns.heatmap(sequence_similarities, annot=True)
+plt.figure(figsize=(8, 6), dpi=600)
+sns.heatmap(sequence_similarities, annot=True, cmap='mako_r', fmt=".2f")
+plt.savefig(rf"{outputFolder}\sequenceHeat.png", bbox_inches="tight")
 plt.show()
 
 

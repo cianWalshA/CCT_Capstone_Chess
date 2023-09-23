@@ -289,7 +289,9 @@ Clustering Tests - Diversity in player opening Selection
 
 selected_columns = ['ELO', 'playGini', 'playEntropy']
 
-playerRatings['bins'] = pd.cut(playerRatings['ELO'], bins=3, labels=False)
+playerRatings['bins'] = pd.qcut(playerRatings['ELO'], q=3, labels=False)
+allRatings = allRatings.merge(playerRatings[['openingPlayer', 'bins']], on='openingPlayer', how='left')
+
 
 # Normalize or standardize the features
 scaler = MinMaxScaler()
@@ -424,10 +426,11 @@ Clustering Tests - Diversity in player opening populations
 """
 
 from scipy.stats import chi2_contingency
-from scipy.cluster.hierarchy import linkage, dendrogram
+
+playerOpenings_cont = playerOpenings.merge(playerRatings[['openingPlayer', 'bins']], on='openingPlayer', how='left')
 
 # Create a contingency table of openings vs. players with counts
-contingency_table = pd.crosstab(allRatings['bins'], allRatings[openingVariable])
+contingency_table = pd.crosstab(playerOpenings_cont['bins'], playerOpenings_cont[openingVariable])
 
 # Perform the Chi-Square Test for Independence
 chi2, p, dof, expected = chi2_contingency(contingency_table)
@@ -523,7 +526,7 @@ ax4.set_ylabel('Silhouette Score')
 # Add legend
 lines3, labels3 = ax3.get_legend_handles_labels()
 lines4, labels4 = ax4.get_legend_handles_labels()
-ax3.legend(lines2 + lines4, labels2 + labels4, loc="upper right")
+ax3.legend(lines3 + lines4, labels3 + labels4, loc="upper right")
 
 # Show the plot
 plt.grid(True)
